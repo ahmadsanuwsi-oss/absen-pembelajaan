@@ -17,6 +17,8 @@ export default function SettingsPage() {
   const [waTest, setWaTest] = useState("");
   const [waTesting, setWaTesting] = useState(false);
   const [waLog, setWaLog] = useState([]);
+  const [waSearch, setWaSearch] = useState("");
+  const [waStatus, setWaStatus] = useState("");
 
   const sendWaTest = async () => {
     setWaTesting(true);
@@ -24,7 +26,12 @@ export default function SettingsPage() {
     catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setWaTesting(false); }
   };
-  const loadWaLog = () => api.get("/wa-log").then((r) => setWaLog(r.data.logs)).catch(() => {});
+  const loadWaLog = () => {
+    const params = {};
+    if (waSearch) params.search = waSearch;
+    if (waStatus) params.status = waStatus;
+    return api.get("/wa-log", { params }).then((r) => setWaLog(r.data.logs)).catch(() => {});
+  };
   const downloadBackup = async (stamp) => {
     try {
       const res = await api.get(`/backups/download/${stamp}`, { responseType: "blob" });
@@ -37,6 +44,7 @@ export default function SettingsPage() {
 
   const loadBackups = () => api.get("/backups").then((r) => setBackups(r.data.backups)).catch(() => {});
   useEffect(() => { api.get("/settings").then((r) => setForm(r.data)); loadBackups(); loadWaLog(); }, []);
+  useEffect(() => { const t = setTimeout(loadWaLog, 300); return () => clearTimeout(t); /* eslint-disable-next-line */ }, [waSearch, waStatus]);
 
   const runBackup = async () => {
     setBackingUp(true);
@@ -135,6 +143,13 @@ export default function SettingsPage() {
 
       <div className="card-soft p-6 mt-5">
         <div className="flex items-center gap-2 mb-4"><MessageCircle className="w-5 h-5 text-[#0F5132]" /><h3 className="font-heading font-semibold text-slate-800">Log Pengiriman WhatsApp</h3></div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Input value={waSearch} onChange={(e) => setWaSearch(e.target.value)} placeholder="Cari konteks / nomor (mis. 443)…" data-testid="wa-log-search" className="w-full sm:w-64" />
+          {[["", "Semua"], ["ok", "Terkirim"], ["failed", "Gagal"], ["skipped", "Dilewati"]].map(([v, l]) => (
+            <button key={v || "all"} onClick={() => setWaStatus(v)} data-testid={`wa-log-filter-${v || "all"}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${waStatus === v ? "bg-[#800020] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{l}</button>
+          ))}
+        </div>
         <div className="border border-[#EFE7D8] rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-[#FAF6EE] text-slate-600 text-xs uppercase"><tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Konteks</th><th className="text-left px-4 py-2">Tujuan</th><th className="text-left px-4 py-2">Status</th></tr></thead>

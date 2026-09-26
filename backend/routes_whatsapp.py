@@ -97,6 +97,11 @@ async def cron_monthly_recap(request: Request, background_tasks: BackgroundTasks
 
 
 @router.get("/wa-log")
-async def wa_log(user: dict = Depends(require_roles("admin"))):
-    logs = await db.wa_log.find({}, {"_id": 0}).sort("at", -1).to_list(100)
+async def wa_log(search: str = "", status: str = "", limit: int = 100, user: dict = Depends(require_roles("admin"))):
+    q = {}
+    if status:
+        q["status"] = status
+    if search:
+        q["$or"] = [{"context": {"$regex": search, "$options": "i"}}, {"target": {"$regex": search, "$options": "i"}}]
+    logs = await db.wa_log.find(q, {"_id": 0}).sort("at", -1).to_list(min(max(limit, 1), 500))
     return {"logs": logs}

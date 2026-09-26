@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import api, { formatRupiah } from "@/lib/api";
 import { PageHeader } from "@/components/ui-kit";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { FileText, Printer, Loader2, Users } from "lucide-react";
+import { FileText, Printer, Loader2, Users, FileDown } from "lucide-react";
+import { exportElementToPdf } from "@/lib/exportPdf";
 import { toast } from "sonner";
 
 const DESC_BADGE = { "Sangat Baik": "text-emerald-700", "Baik": "text-sky-700", "Cukup": "text-amber-700", "Perlu Bimbingan": "text-rose-700" };
@@ -95,6 +96,16 @@ export default function Rapor() {
   const [data, setData] = useState(null);
   const [classData, setClassData] = useState(null);
   const [loadingClass, setLoadingClass] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const downloadPdf = async () => {
+    const el = document.querySelector('[data-testid="rapor-content"]');
+    if (!el || !data) return;
+    setPdfLoading(true);
+    try { await exportElementToPdf(el, `Rapor-${data.student.name.replace(/\s+/g, "_")}.pdf`); }
+    catch (e) { toast.error("Gagal membuat PDF"); }
+    finally { setPdfLoading(false); }
+  };
 
   useEffect(() => { api.get("/classes").then((r) => setClasses(r.data)); }, []);
   useEffect(() => {
@@ -132,6 +143,7 @@ export default function Rapor() {
           <SelectContent><SelectItem value="none">Pilih siswa</SelectItem>{students.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
         <button onClick={() => window.print()} disabled={!data} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#800020] text-white text-sm font-semibold hover:bg-[#6B0D24] disabled:opacity-40" data-testid="print-rapor-button"><Printer className="w-4 h-4" /> Cetak Siswa</button>
+        <button onClick={downloadPdf} disabled={!data || pdfLoading} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B8860B] text-white text-sm font-semibold hover:bg-[#9a7009] disabled:opacity-40" data-testid="download-rapor-pdf-button">{pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} Unduh PDF</button>
         <button onClick={printClass} disabled={!classId || loadingClass} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#0F5132] text-white text-sm font-semibold hover:bg-[#0a3d25] disabled:opacity-40" data-testid="print-rapor-class-button">
           {loadingClass ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Cetak Sekelas
         </button>
