@@ -22,4 +22,6 @@ async def paginate(collection, query, page=1, limit=10, sort_field="created_at",
     total = await collection.count_documents(query)
     cursor = collection.find(query, proj).sort(sort_field, sort_dir).skip(skip).limit(limit)
     items = await cursor.to_list(length=limit)
+    for it in items:
+        it.pop("_id", None)
     return {"items": items, "total": total, "page": page, "limit": limit, "pages": (total + limit - 1) // limit}

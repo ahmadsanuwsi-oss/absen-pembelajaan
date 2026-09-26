@@ -30,9 +30,11 @@ async def admin_dashboard(user: dict = Depends(require_roles("admin"))):
     class_dist = []
     for c in classes:
         class_dist.append({"name": c["name"], "count": await db.students.count_documents({"class_id": c["id"]})})
-    total_savings = 0.0
-    for s in await db.students.find({}, {"_id": 0, "id": 1}).to_list(2000):
-        total_savings += await get_balance(s["id"])
+    agg = await db.savings.aggregate([
+        {"$group": {"_id": "$kind", "sum": {"$sum": "$amount"}}}
+    ]).to_list(10)
+    sums = {a["_id"]: a["sum"] for a in agg}
+    total_savings = sums.get("setoran", 0) - sums.get("penarikan", 0)
     return {
         "total_students": total_students, "total_teachers": total_teachers, "total_classes": total_classes,
         "present_today": present_today, "late_today": late_today, "absent_today": max(total_students - present_today, 0),
