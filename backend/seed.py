@@ -106,6 +106,15 @@ async def seed_data():
     await db.users.insert_one({"id": new_id(), "email": "siswa@mijannah.sch.id", "password_hash": hash_password("siswa123"), "name": first_student["name"], "role": "siswa", "student_id": first_student["id"], "teacher_id": None, "created_at": now_iso()})
 
 
+async def ensure_demo_accounts():
+    # Idempotent: re-apply demo passwords on every startup so they never drift.
+    demos = [("guru@mijannah.sch.id", "guru123"), ("siswa@mijannah.sch.id", "siswa123")]
+    for email, pw in demos:
+        existing = await db.users.find_one({"email": email})
+        if existing and not verify_password(pw, existing["password_hash"]):
+            await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_password(pw)}})
+
+
 async def ensure_indexes():
     await db.users.create_index("email", unique=True)
     await db.students.create_index("nisn")

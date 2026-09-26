@@ -20,7 +20,7 @@ import routes_report
 import routes_cron
 import routes_whatsapp
 from auth import seed_admin
-from seed import seed_data, ensure_indexes
+from seed import seed_data, ensure_indexes, ensure_demo_accounts
 
 app = FastAPI(title="SIM MI Miftahul Jannah")
 
@@ -57,6 +57,7 @@ async def startup():
     await ensure_indexes()
     await seed_admin()
     await seed_data()
+    await ensure_demo_accounts()
     logger.info("Startup complete: indexes, admin, and seed data ready.")
 
 
