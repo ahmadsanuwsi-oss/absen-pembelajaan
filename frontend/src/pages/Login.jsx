@@ -3,11 +3,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useSchool } from "@/context/SchoolContext";
 import { useNavigate } from "react-router-dom";
 import { Logo } from "@/components/Logo";
+import { AbsensiCepat } from "@/components/AbsensiCepat";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatApiError } from "@/lib/api";
-import { Loader2, ScanLine, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, LogIn, User, Lock } from "lucide-react";
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -24,61 +25,49 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError(""); setLoading(true);
-    try { await login(email, password); navigate("/dashboard"); }
+    try { await login(email.trim(), password); navigate("/dashboard"); }
     catch (e) { setError(formatApiError(e.response?.data?.detail) || e.message); }
     finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex w-1/2 maroon-gradient relative flex-col justify-between p-12 overflow-hidden">
-        <div className="absolute inset-0 islamic-pattern-dark opacity-80" />
-        <div className="relative flex items-center gap-3">
-          <div className="bg-white/95 rounded-2xl p-2 shadow-lg"><Logo size={52} /></div>
-          <div>
-            <div className="font-heading font-extrabold text-white text-xl">{school.school_name}</div>
-            <div className="text-[#E9C46A] text-sm">{school.school_subtitle}</div>
-          </div>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-background">
+      {/* Left — Absensi Cepat */}
+      <div className="lg:w-1/2 relative flex items-center justify-center p-6 sm:p-10" style={{ background: "linear-gradient(160deg,#FDF2F4 0%,#FBE9EE 100%)" }}>
+        <div className="absolute inset-0 islamic-pattern opacity-40" />
+        <div className="relative card-soft p-8 w-full max-w-md">
+          <AbsensiCepat compact={false} />
         </div>
-        <div className="relative">
-          <p className="font-arabic text-[#E9C46A] text-4xl mb-5">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</p>
-          <h2 className="font-heading text-4xl font-extrabold text-white leading-tight">Sistem Informasi<br />Manajemen Madrasah</h2>
-          <p className="text-white/70 mt-4 max-w-md leading-relaxed">Presensi kiosk, nilai Kurikulum Merdeka, tahfidz, tabungan, dan administrasi guru dalam satu platform terpadu.</p>
-        </div>
-        <div className="relative text-white/40 text-xs">© 2026 {school.school_name} · Tahun Ajaran {school.academic_year}</div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-6 bg-background relative">
-        <div className="absolute inset-0 islamic-pattern opacity-40 lg:hidden" />
-        <div className="w-full max-w-md relative">
-          <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="bg-white rounded-2xl p-2 shadow"><Logo size={48} /></div>
-            <div className="font-heading font-extrabold text-[#800020] text-lg">{school.school_name}</div>
-          </div>
-          <div className="card-soft p-8">
-            <div className="text-[11px] uppercase font-bold tracking-widest text-amber-700 mb-1">Portal Madrasah</div>
-            <h1 className="font-heading text-2xl font-extrabold text-slate-900">Selamat Datang</h1>
-            <p className="text-sm text-slate-500 mt-1 mb-6">Masuk untuk mengakses dashboard Anda.</p>
-            <form onSubmit={submit} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@mijannah.sch.id" required data-testid="login-email-input" className="mt-1.5" />
+      {/* Right — Login MifjanOke */}
+      <div className="lg:w-1/2 flex items-center justify-center p-6 sm:p-10 bg-white">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-4"><div className="bg-white rounded-2xl p-2 shadow-sm border border-[#EFE7D8]"><Logo size={72} /></div></div>
+          <h1 className="font-heading text-xl sm:text-2xl font-extrabold text-[#800020] leading-snug">Manajemen Informasi Finansial, Jurnal Administrasi, Nilai, Observasi Kehadiran, dan Evaluasi</h1>
+          <p className="text-sm text-slate-500 mt-2 mb-6">Silakan masuk ke akun Anda</p>
+          <form onSubmit={submit} className="space-y-4 text-left">
+            <div>
+              <Label htmlFor="email">Username</Label>
+              <div className="relative mt-1.5">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input id="email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Masukkan username / email" required data-testid="login-email-input" className="pl-9 h-11" />
               </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <div className="relative mt-1.5">
-                  <Input id="password" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required data-testid="login-password-input" />
-                  <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
-                </div>
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative mt-1.5">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input id="password" type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" required data-testid="login-password-input" className="pl-9 h-11" />
+                <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
               </div>
-              {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2" data-testid="login-error">{error}</div>}
-              <Button type="submit" disabled={loading} data-testid="login-submit-button" className="w-full bg-[#800020] hover:bg-[#6B0D24] h-11 text-base">{loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Masuk"}</Button>
-            </form>
-            <button onClick={() => navigate("/kiosk")} data-testid="goto-kiosk-btn" className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-[#0F5132] text-[#0F5132] font-semibold hover:bg-[#0F5132] hover:text-white transition-colors">
-              <ScanLine className="w-5 h-5" /> Mode Kiosk Presensi
-            </button>
-          </div>
-          <p className="text-center text-xs text-slate-400 mt-6">Akun dibuat oleh Administrator. Lupa password? Hubungi TU.</p>
+            </div>
+            {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2" data-testid="login-error">{error}</div>}
+            <Button type="submit" disabled={loading} data-testid="login-submit-button" className="w-full bg-[#800020] hover:bg-[#6B0D24] h-12 text-base font-semibold">
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><LogIn className="w-5 h-5 mr-2" /> MASUK SISTEM</>}
+            </Button>
+          </form>
+          <p className="text-center text-xs text-slate-400 mt-6">{school.school_name} · TA {school.academic_year} · Akun dibuat oleh Administrator</p>
         </div>
       </div>
     </div>

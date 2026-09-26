@@ -43,7 +43,7 @@ async def _build_rapor(student, settings, subjects_map, month=""):
         grades.append({"subject": name, "formatif": avg_f, "sumatif": avg_s, "final": final, "descriptor": descriptor(final)})
     avg_all = round(sum(g["final"] for g in grades) / len(grades), 1) if grades else 0
 
-    aq = {"student_id": student_id, "type": "kehadiran"}
+    aq = {"student_id": student_id, "type": "datang"}
     if month:
         aq["date"] = {"$regex": f"^{month}"}
     att = await db.attendance.find(aq, {"_id": 0}).to_list(500)

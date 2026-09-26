@@ -17,13 +17,13 @@ async def admin_dashboard(user: dict = Depends(require_roles("admin"))):
     total_students = await db.students.count_documents({})
     total_teachers = await db.teachers.count_documents({})
     total_classes = await db.classes.count_documents({})
-    present_today = await db.attendance.count_documents({"type": "kehadiran", "date": date, "status": {"$in": ["hadir", "terlambat"]}})
-    late_today = await db.attendance.count_documents({"type": "kehadiran", "date": date, "status": "terlambat"})
+    present_today = await db.attendance.count_documents({"type": "datang", "date": date, "status": {"$in": ["hadir", "terlambat"]}})
+    late_today = await db.attendance.count_documents({"type": "datang", "date": date, "status": "terlambat"})
     # attendance last 7 days
     trend = []
     for i in range(6, -1, -1):
         d = (datetime.now(timezone.utc) + timedelta(hours=7) - timedelta(days=i)).strftime("%Y-%m-%d")
-        cnt = await db.attendance.count_documents({"type": "kehadiran", "date": d, "status": {"$in": ["hadir", "terlambat"]}})
+        cnt = await db.attendance.count_documents({"type": "datang", "date": d, "status": {"$in": ["hadir", "terlambat"]}})
         trend.append({"date": d[5:], "hadir": cnt})
     # per class distribution
     classes = await db.classes.find({}, {"_id": 0}).sort("name", 1).to_list(200)
@@ -53,7 +53,7 @@ async def guru_dashboard(user: dict = Depends(require_roles("guru"))):
     if wali_class:
         sids = [s["id"] for s in await db.students.find({"class_id": wali_class["id"]}, {"_id": 0, "id": 1}).to_list(500)]
         class_students = len(sids)
-        present = await db.attendance.count_documents({"student_id": {"$in": sids}, "type": "kehadiran", "date": date, "status": {"$in": ["hadir", "terlambat"]}})
+        present = await db.attendance.count_documents({"student_id": {"$in": sids}, "type": "datang", "date": date, "status": {"$in": ["hadir", "terlambat"]}})
     return {
         "wali_class": wali_class, "my_journals": my_journals,
         "class_students": class_students, "present_today": present,
@@ -75,7 +75,7 @@ async def student_portal(user: dict = Depends(require_roles("siswa"))):
         c = await db.classes.find_one({"id": student["class_id"]}, {"_id": 0, "name": 1})
         class_name = c["name"] if c else "-"
     month = today_str()[:7]
-    att = await db.attendance.find({"student_id": sid, "type": "kehadiran", "date": {"$regex": f"^{month}"}}, {"_id": 0}).to_list(100)
+    att = await db.attendance.find({"student_id": sid, "type": "datang", "date": {"$regex": f"^{month}"}}, {"_id": 0}).to_list(100)
     att_counts = {"hadir": 0, "terlambat": 0, "izin": 0, "sakit": 0, "alpa": 0}
     for a in att:
         att_counts[a.get("status", "hadir")] = att_counts.get(a.get("status", "hadir"), 0) + 1

@@ -58,6 +58,8 @@ async def startup():
     await seed_admin()
     await seed_data()
     await ensure_demo_accounts()
+    await db.attendance.update_many({"type": "kehadiran"}, {"$set": {"type": "datang"}})
+    await db.attendance.update_many({"type": "ekstra"}, {"$set": {"type": "pramuka"}})
     logger.info("Startup complete: indexes, admin, and seed data ready.")
 
 

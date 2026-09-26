@@ -5,20 +5,21 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { CheckSquare, Download, MessageCircle } from "lucide-react";
 import { exportToXlsx } from "@/lib/exportXlsx";
+import { ATTENDANCE_TYPES } from "@/config/attendanceTypes";
+const TYPES = ATTENDANCE_TYPES.map((t) => ({ v: t.value, l: t.label }));
 import { toast } from "sonner";
 
 const STATUS_BADGE = {
   hadir: "bg-emerald-100 text-emerald-700", terlambat: "bg-amber-100 text-amber-700",
   izin: "bg-sky-100 text-sky-700", sakit: "bg-violet-100 text-violet-700", alpa: "bg-rose-100 text-rose-700",
 };
-const TYPES = [{ v: "kehadiran", l: "Kehadiran Harian" }, { v: "dhuha", l: "Sholat Dhuha" }, { v: "ekstra", l: "Ekstrakurikuler" }];
 const MANUAL_STATUS = ["hadir", "terlambat", "izin", "sakit", "alpa"];
 
 export default function Attendance() {
   const [tab, setTab] = useState("harian");
   const [classes, setClasses] = useState([]);
   const [classFilter, setClassFilter] = useState("");
-  const [type, setType] = useState("kehadiran");
+  const [type, setType] = useState("datang");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [daily, setDaily] = useState({ items: [] });

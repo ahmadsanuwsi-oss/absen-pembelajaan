@@ -7,7 +7,11 @@ from whatsapp import send_whatsapp, send_bulk
 from routes_cron import _verify
 
 router = APIRouter(prefix="/api", tags=["whatsapp"])
-TYPE_LABELS = {"kehadiran": "Kehadiran Harian", "dhuha": "Sholat Dhuha", "ekstra": "Ekstrakurikuler"}
+TYPE_LABELS = {
+    "datang": "Kehadiran (Datang)", "pulang": "Kehadiran (Pulang)",
+    "dhuha": "Sholat Dhuha", "dzuhur": "Sholat Dzuhur",
+    "pramuka": "Ekstra Pramuka", "tartil": "Ekstra Tartil", "ekstra_tahfidz": "Ekstra Tahfidz",
+}
 
 
 def wib_now():
@@ -19,7 +23,7 @@ class TestInput(BaseModel):
     message: str = "Tes notifikasi WhatsApp dari SIM MI Miftahul Jannah. Jika Anda menerima ini, integrasi berhasil."
 
 
-async def build_recap_items(month: str, class_id: str = "", type: str = "kehadiran"):
+async def build_recap_items(month: str, class_id: str = "", type: str = "datang"):
     sq = {}
     if class_id:
         sq["class_id"] = class_id
@@ -71,7 +75,7 @@ async def whatsapp_test(input: TestInput, user: dict = Depends(require_roles("ad
 
 
 @router.post("/whatsapp/recap-blast")
-async def recap_blast(background_tasks: BackgroundTasks, class_id: str = "", month: str = "", type: str = "kehadiran", user: dict = Depends(require_roles("admin", "guru"))):
+async def recap_blast(background_tasks: BackgroundTasks, class_id: str = "", month: str = "", type: str = "datang", user: dict = Depends(require_roles("admin", "guru"))):
     month = month or wib_now().strftime("%Y-%m")
     items = await build_recap_items(month, class_id, type)
     if not items:
@@ -81,7 +85,7 @@ async def recap_blast(background_tasks: BackgroundTasks, class_id: str = "", mon
 
 
 async def _run_monthly_recap(month: str):
-    items = await build_recap_items(month, "", "kehadiran")
+    items = await build_recap_items(month, "", "datang")
     if items:
         await send_bulk(items, 5)
 

@@ -9,8 +9,12 @@ from whatsapp import notify_attendance
 router = APIRouter(prefix="/api", tags=["attendance"])
 
 JAKARTA_OFFSET = timedelta(hours=7)
-ATTENDANCE_TYPES = ["kehadiran", "dhuha", "ekstra"]
-TYPE_LABELS = {"kehadiran": "Kehadiran Harian", "dhuha": "Sholat Dhuha", "ekstra": "Ekstrakurikuler"}
+ATTENDANCE_TYPES = ["datang", "pulang", "dhuha", "dzuhur", "pramuka", "tartil", "ekstra_tahfidz"]
+TYPE_LABELS = {
+    "datang": "Kehadiran (Datang)", "pulang": "Kehadiran (Pulang)",
+    "dhuha": "Sholat Dhuha", "dzuhur": "Sholat Dzuhur",
+    "pramuka": "Ekstra Pramuka", "tartil": "Ekstra Tartil", "ekstra_tahfidz": "Ekstra Tahfidz",
+}
 
 
 def local_now():
@@ -57,7 +61,7 @@ async def kiosk_scan(input: KioskScanInput, background_tasks: BackgroundTasks):
     time_str = now.strftime("%H:%M:%S")
     # Kehadiran late after 07:00 local
     status = "hadir"
-    if input.type == "kehadiran" and (now.hour > 7 or (now.hour == 7 and now.minute > 0)):
+    if input.type == "datang" and (now.hour > 7 or (now.hour == 7 and now.minute > 0)):
         status = "terlambat"
     doc = {
         "id": new_id(), "student_id": student["id"], "type": input.type, "date": date,
@@ -74,6 +78,17 @@ async def kiosk_scan(input: KioskScanInput, background_tasks: BackgroundTasks):
         "student": {"name": student["name"], "nisn": student["nisn"], "class_name": class_name, "photo_url": student.get("photo_url")},
         "time": time_str, "attendance_status": status,
     }
+
+
+@router.get("/kiosk/classes")
+async def kiosk_classes():
+    classes = await db.classes.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    teachers = {t["id"]: t for t in await db.teachers.find({}, {"_id": 0}).to_list(200)}
+    out = []
+    for c in classes:
+        t = teachers.get(c.get("wali_kelas_id"))
+        out.append({"id": c["id"], "name": c["name"], "wali_name": t["name"] if t else None, "wali_phone": (t.get("phone") if t else None)})
+    return out
 
 
 @router.post("/attendance/manual")
@@ -118,7 +133,7 @@ async def list_attendance(date: str = "", type: str = "", class_id: str = "", pa
 
 
 @router.get("/attendance/recap")
-async def attendance_recap(class_id: str = "", type: str = "kehadiran", month: str = "", user: dict = Depends(require_roles("admin", "guru"))):
+async def attendance_recap(class_id: str = "", type: str = "datang", month: str = "", user: dict = Depends(require_roles("admin", "guru"))):
     month = month or local_now().strftime("%Y-%m")
     sq = {}
     if class_id:
