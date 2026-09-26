@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Upload, Save, MessageCircle, Building2, Database, RefreshCw } from "lucide-react";import { Logo } from "@/components/Logo";
+import { Settings, Upload, Save, MessageCircle, Building2, Database, RefreshCw, Download } from "lucide-react";import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -16,16 +16,27 @@ export default function SettingsPage() {
   const [backingUp, setBackingUp] = useState(false);
   const [waTest, setWaTest] = useState("");
   const [waTesting, setWaTesting] = useState(false);
+  const [waLog, setWaLog] = useState([]);
 
   const sendWaTest = async () => {
     setWaTesting(true);
-    try { await api.post("/whatsapp/test", { target: waTest }); toast.success("Pesan tes WhatsApp terkirim"); }
+    try { await api.post("/whatsapp/test", { target: waTest }); toast.success("Pesan tes WhatsApp terkirim"); loadWaLog(); }
     catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setWaTesting(false); }
   };
+  const loadWaLog = () => api.get("/wa-log").then((r) => setWaLog(r.data.logs)).catch(() => {});
+  const downloadBackup = async (stamp) => {
+    try {
+      const res = await api.get(`/backups/download/${stamp}`, { responseType: "blob" });
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url; a.download = `backup-${stamp}.zip`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error("Gagal mengunduh backup"); }
+  };
 
   const loadBackups = () => api.get("/backups").then((r) => setBackups(r.data.backups)).catch(() => {});
-  useEffect(() => { api.get("/settings").then((r) => setForm(r.data)); loadBackups(); }, []);
+  useEffect(() => { api.get("/settings").then((r) => setForm(r.data)); loadBackups(); loadWaLog(); }, []);
 
   const runBackup = async () => {
     setBackingUp(true);
@@ -107,13 +118,33 @@ export default function SettingsPage() {
         <p className="text-sm text-slate-500 mb-4">Backup berjalan otomatis <b>setiap malam pukul 01.00 WIB</b> (menyimpan seluruh data: absensi, nilai, tahfidz, tabungan). 7 backup terakhir disimpan.</p>
         <div className="border border-[#EFE7D8] rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-[#FAF6EE] text-slate-600 text-xs uppercase"><tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Total Data</th></tr></thead>
+            <thead className="bg-[#FAF6EE] text-slate-600 text-xs uppercase"><tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Total Data</th><th className="text-right px-4 py-2">Unduh</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {backups.length === 0 ? <tr><td colSpan={3} className="text-center text-slate-400 py-6">Belum ada backup</td></tr> : backups.map((b, i) => (
+              {backups.length === 0 ? <tr><td colSpan={4} className="text-center text-slate-400 py-6">Belum ada backup</td></tr> : backups.map((b, i) => (
                 <tr key={i} data-testid={`backup-row-${i}`}>
                   <td className="px-4 py-2 font-mono text-xs">{new Date(b.at).toLocaleString("id-ID")}</td>
                   <td className="px-4 py-2"><span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-xs font-semibold uppercase">{b.status}</span></td>
                   <td className="px-4 py-2 text-slate-500">{Object.values(b.counts || {}).reduce((a, c) => a + c, 0)} dokumen</td>
+                  <td className="px-4 py-2 text-right"><button onClick={() => downloadBackup(b.stamp)} data-testid={`download-backup-${i}`} className="inline-flex items-center gap-1 text-xs text-[#0F5132] hover:bg-emerald-50 px-2 py-1 rounded-md font-semibold"><Download className="w-4 h-4" /> ZIP</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card-soft p-6 mt-5">
+        <div className="flex items-center gap-2 mb-4"><MessageCircle className="w-5 h-5 text-[#0F5132]" /><h3 className="font-heading font-semibold text-slate-800">Log Pengiriman WhatsApp</h3></div>
+        <div className="border border-[#EFE7D8] rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-[#FAF6EE] text-slate-600 text-xs uppercase"><tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Konteks</th><th className="text-left px-4 py-2">Tujuan</th><th className="text-left px-4 py-2">Status</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">
+              {waLog.length === 0 ? <tr><td colSpan={4} className="text-center text-slate-400 py-6">Belum ada pengiriman WA</td></tr> : waLog.map((w, i) => (
+                <tr key={i} data-testid={`wa-log-${i}`}>
+                  <td className="px-4 py-2 font-mono text-xs">{new Date(w.at).toLocaleString("id-ID")}</td>
+                  <td className="px-4 py-2 text-slate-600">{w.context || "-"}</td>
+                  <td className="px-4 py-2 font-mono text-xs">{w.target}</td>
+                  <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-md text-xs font-semibold uppercase ${w.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : w.status === 'skipped' ? 'bg-slate-100 text-slate-500' : 'bg-rose-100 text-rose-700'}`}>{w.status}</span>{w.reason && w.status !== 'ok' ? <span className="ml-2 text-[11px] text-slate-400">{w.reason}</span> : null}</td>
                 </tr>
               ))}
             </tbody>

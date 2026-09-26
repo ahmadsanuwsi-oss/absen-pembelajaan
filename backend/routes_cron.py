@@ -2,9 +2,12 @@ import os
 import json
 import hmac
 import shutil
+import zipfile
+import tempfile
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Depends
+from fastapi.responses import FileResponse
 from db import db
 from auth import require_roles
 
@@ -64,3 +67,16 @@ async def list_backups(user: dict = Depends(require_roles("admin"))):
 async def run_backup_now(background_tasks: BackgroundTasks, user: dict = Depends(require_roles("admin"))):
     background_tasks.add_task(_run_backup)
     return {"status": "accepted"}
+
+
+@router.get("/backups/download/{stamp}")
+async def download_backup(stamp: str, user: dict = Depends(require_roles("admin"))):
+    safe = "".join(ch for ch in stamp if ch.isdigit() or ch == "-")
+    folder = BACKUP_DIR / f"backup-{safe}"
+    if not folder.is_dir():
+        raise HTTPException(404, "Backup tidak ditemukan")
+    zip_path = Path(tempfile.gettempdir()) / f"backup-{safe}.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in folder.glob("*.json"):
+            z.write(p, p.name)
+    return FileResponse(zip_path, media_type="application/zip", filename=f"backup-{safe}.zip")
