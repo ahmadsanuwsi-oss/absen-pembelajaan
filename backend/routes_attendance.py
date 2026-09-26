@@ -27,12 +27,12 @@ def today_str():
 
 class KioskScanInput(BaseModel):
     code: str  # NISN or RFID uid
-    type: str = "kehadiran"
+    type: str = "datang"
 
 
 class ManualAttendanceInput(BaseModel):
     student_id: str
-    type: str = "kehadiran"
+    type: str = "datang"
     status: str = "hadir"  # hadir | terlambat | izin | sakit | alpa
     date: Optional[str] = None
 
@@ -144,6 +144,7 @@ async def attendance_recap(class_id: str = "", type: str = "datang", month: str 
         records = await db.attendance.find({"student_id": s["id"], "type": type, "date": {"$regex": f"^{month}"}}, {"_id": 0}).to_list(100)
         counts = {"hadir": 0, "terlambat": 0, "izin": 0, "sakit": 0, "alpa": 0}
         for r in records:
-            counts[r.get("status", "hadir")] = counts.get(r.get("status", "hadir"), 0) + 1
+            st = r.get("status", "hadir")
+            counts[st] = counts.get(st, 0) + 1
         recap.append({"student_id": s["id"], "name": s["name"], "nisn": s["nisn"], **counts, "total": len(records)})
     return {"month": month, "type": type, "recap": recap}

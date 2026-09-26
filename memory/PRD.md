@@ -21,6 +21,13 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - Kiosk: absensi cepat publik (tanpa login).
 
 ## Implemented (2026-06)
+### Iterasi 6 (dari mockup user: JENIS ABSEN & HALAMAN UTAMA)
+- **7 Jenis Absen**: datang, pulang, dhuha, dzuhur, pramuka, tartil, ekstra_tahfidz (label Indonesia). Migrasi data lama kehadiran→datang, ekstra→pramuka. Terlambat hanya berlaku untuk "datang".
+- **Halaman Utama gabungan** (/login): KIRI kartu "Absensi Cepat" (dropdown jenis absen + input RFID Enter-to-submit + "Berhalangan Hadir?" pilih kelas + tombol WA "Hubungi Wali Kelas (nama)"), KANAN login MifjanOke (Username/Password, MASUK SISTEM).
+- **Endpoint publik** GET /api/kiosk/classes (kelas + wali_name + wali_phone) untuk tombol Hubungi Wali Kelas (wa.me).
+- Kiosk layar penuh diperbarui: 7 jenis (Select), input RFID, kamera OCR, Hubungi Wali Kelas. Komponen bersama AbsensiCepat + config/attendanceTypes.js.
+- Uji: 30/30 tes iterasi lulus. Perbaikan: default type stale & recap KeyError.
+
 ### Iterasi 5
 - **Filter Log WA**: GET /api/wa-log terima ?search=&status=&limit= ; panel Pengaturan punya kotak cari + tombol filter status (Semua/Terkirim/Gagal/Dilewati) untuk menelusuri nomor bermasalah.
 - **Unduh Rapor PDF**: tombol "Unduh PDF" di halaman Rapor (client-side html2canvas + jsPDF) simpan rapor siswa jadi berkas .pdf multi-halaman tanpa dialog cetak browser.
