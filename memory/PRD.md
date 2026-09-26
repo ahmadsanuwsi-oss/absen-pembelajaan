@@ -21,6 +21,13 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - Kiosk: absensi cepat publik (tanpa login).
 
 ## Implemented (2026-06)
+### Iterasi 3
+- **Rapor Sekelas**: GET /api/report/rapor-class/{class_id} + tombol "Cetak Sekelas" → semua siswa satu kelas dirender bertumpuk dengan page-break, cetak/simpan jadi satu PDF.
+- **Backup harian otomatis**: platform cron `.emergent/crons.yml` (01:00 WIB) → POST /api/cron/backup (Bearer WEBHOOK_CRON_SECRET, kerja di background) dump 14 koleksi ke /app/backups (retensi 7). Panel di Pengaturan: GET /api/backups + tombol "Backup Sekarang" (/api/backups/run-now).
+- **WhatsApp Fonnte**: whatsapp.py (normalisasi 08→628, send_whatsapp/send_bulk, token dari settings.whatsapp_api_key). Real-time saat presensi kiosk (background), blast rekap bulanan POST /api/whatsapp/recap-blast (orang tua + wali kelas dari data guru), tes kirim POST /api/whatsapp/test. UI: tombol "Kirim WA" di rekap absensi + "Kirim Tes" di Pengaturan.
+- **Privasi**: foto NISN kiosk diproses OCR di browser (Tesseract.js); hanya 10 digit dikirim, foto tidak diunggah/disimpan.
+- Uji: 78/78 tes backend lulus; smoke frontend lulus.
+
 ### Iterasi 2
 - Absensi manual (tombol hadir/terlambat/izin/sakit/alpa) di tab "Input Manual", dengan validasi status di backend.
 - Export Excel (.xlsx) untuk Leger nilai & Rekap absensi bulanan (SheetJS/xlsx).
