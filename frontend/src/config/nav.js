@@ -1,12 +1,8 @@
-import { LayoutDashboard, Users, GraduationCap, School, UserCog, FileBarChart, ClipboardList, BookOpenCheck, Notebook, BookMarked, Wallet, CalendarRange, CheckSquare, Trophy, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, School, UserCog, FileBarChart, ClipboardList, BookOpenCheck, Notebook, BookMarked, Wallet, CalendarRange, CheckSquare, Trophy, ScrollText, Settings, FileText } from "lucide-react";
 
-// Grouped navigation per role, accordion style
 export const NAV = {
   admin: [
-    {
-      group: "Utama",
-      items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard }],
-    },
+    { group: "Utama", items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard }] },
     {
       group: "Master Data",
       items: [
@@ -23,6 +19,7 @@ export const NAV = {
         { label: "Nilai / Leger", to: "/leger", icon: BookOpenCheck },
         { label: "Program Tahfidz", to: "/tahfidz", icon: Trophy },
         { label: "Tabungan Siswa", to: "/tabungan", icon: Wallet },
+        { label: "Cetak Rapor", to: "/rapor", icon: FileText },
       ],
     },
     {
@@ -30,14 +27,12 @@ export const NAV = {
       items: [
         { label: "Kelola Akun", to: "/akun", icon: UserCog },
         { label: "Laporan", to: "/laporan", icon: FileBarChart },
+        { label: "Pengaturan", to: "/pengaturan", icon: Settings },
       ],
     },
   ],
   guru: [
-    {
-      group: "Utama",
-      items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard }],
-    },
+    { group: "Utama", items: [{ label: "Dashboard", to: "/dashboard", icon: LayoutDashboard }] },
     {
       group: "Administrasi Guru",
       items: [
@@ -45,6 +40,7 @@ export const NAV = {
         { label: "Asesmen", to: "/asesmen", icon: ClipboardList },
         { label: "Leger Nilai", to: "/leger", icon: BookOpenCheck },
         { label: "Catatan & Piket", to: "/catatan", icon: ScrollText },
+        { label: "Cetak Rapor", to: "/rapor", icon: FileText },
       ],
     },
     {

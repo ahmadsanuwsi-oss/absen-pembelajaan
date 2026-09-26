@@ -1,146 +1,184 @@
 {
-  "project_name": "SIM MI Miftahul Jannah",
-  "archetype": "ORGANIC & SWISS HYBRID (Islamic Educational Authority & Warmth)",
-  "app_type": "hybrid_fullstack",
-  "theme": {
-    "mode": "light_primary_with_dark_kiosk",
-    "primary_color": "Maroon (#800020 / #6B0D24)",
-    "accent_color": "Islamic Warm Gold (#D4AF37) & Deep Emerald (#0D5C3A)",
-    "background_light": "#FAF9F6 (Warm Alabaster / Parchment)",
-    "card_background": "#FFFFFF",
-    "border_color": "#E5E7EB (Slate 200) with subtle gold tints (#F3E8C6)"
+  "project_identity": {
+    "name": "SIM MI Miftahul Jannah",
+    "tagline": "Sistem Informasi Manajemen Madrasah Ibtidaiyah Terpadu",
+    "aesthetic_theme": "Modern Islamic Clean Educational (Clean Madrasah Identity)",
+    "primary_archetype": "ORGANIC & EARTHY / SWISS HYBRID WITH ISLAMIC ACCENTS",
+    "description": "A refined, professional full-online school management platform tailored for Indonesian Islamic Elementary Schools (Madrasah Ibtidaiyah). Features rich deep maroon identity accents paired with noble emerald green, warm antique gold, and soft ivory background surfaces for high legibility, warmth, and institutional authority."
   },
-  "typography": {
-    "heading_font": "Plus Jakarta Sans, sans-serif",
-    "body_font": "Inter, sans-serif",
-    "arabic_decorative_font": "Amiri, serif",
-    "font_scale": {
-      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight",
-      "h2_section": "text-2xl sm:text-3xl font-semibold tracking-tight",
-      "h3_card": "text-lg sm:text-xl font-semibold",
-      "body": "text-sm sm:text-base leading-relaxed",
-      "caption": "text-xs font-medium tracking-wide uppercase text-muted-foreground"
+  "color_system": {
+    "palette_name": "Madrasah Maroon & Emerald Gold",
+    "hsl_css_variables": {
+      "--background": "40 20% 98%",
+      "--foreground": "222 47% 11%",
+      "--card": "0 0% 100%",
+      "--card-foreground": "222 47% 11%",
+      "--popover": "0 0% 100%",
+      "--popover-foreground": "222 47% 11%",
+      "--primary": "346 100% 25%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "43 65% 52%",
+      "--secondary-foreground": "0 0% 100%",
+      "--muted": "210 40% 96%",
+      "--muted-foreground": "215 16% 47%",
+      "--accent": "346 80% 96%",
+      "--accent-foreground": "346 100% 25%",
+      "--destructive": "0 84.2% 60.2%",
+      "--destructive-foreground": "0 0% 98%",
+      "--border": "214 32% 91%",
+      "--input": "214 32% 91%",
+      "--ring": "346 100% 25%",
+      "--chart-1": "346 100% 30%",
+      "--chart-2": "43 65% 52%",
+      "--chart-3": "160 74% 21%",
+      "--chart-4": "27 87% 55%",
+      "--chart-5": "215 60% 45%"
+    },
+    "hex_palette": {
+      "maroon_deep": "#4A0616",
+      "maroon_primary": "#800020",
+      "maroon_accent": "#9E1B32",
+      "emerald_noble": "#0F5132",
+      "emerald_light": "#E8F5E9",
+      "gold_warm": "#D4AF37",
+      "gold_soft": "#FBF3D5",
+      "ivory_bg": "#FAF8F5",
+      "surface_white": "#FFFFFF",
+      "text_dark": "#1E293B",
+      "text_muted": "#64748B",
+      "border_subtle": "#E2E8F0"
+    },
+    "rules": {
+      "contrast_standard": "APCA / WCAG AA (Minimum 4.5:1 for body text, 3:1 for large display)",
+      "gradient_policy": "Strictly limited to hero branding containers and kiosk headers. Never overlay dark gradients across global UI.",
+      "tinted_greys": "Always tint neutral borders and card backgrounds with a warm 2% yellow/sand hue (#FAF8F5) to eliminate sterile digital blues."
     }
   },
-  "colors": {
-    "maroon_900": "#4A0616",
-    "maroon_800": "#6B0D24",
-    "maroon_700": "#800020",
-    "maroon_600": "#9E1B32",
-    "maroon_100": "#F9ECEF",
-    "maroon_50": "#FDF2F4",
-    "gold_600": "#B8860B",
-    "gold_500": "#D4AF37",
-    "gold_100": "#FDF8E2",
-    "emerald_700": "#0D5C3A",
-    "emerald_100": "#E6F4ED",
-    "slate_900": "#0F172A",
-    "slate_700": "#334155",
-    "slate_500": "#64748B",
-    "slate_100": "#F1F5F9"
-  },
-  "css_variables_override": {
-    "--primary": "346 100% 25%",
-    "--primary-foreground": "0 0% 100%",
-    "--secondary": "43 65% 52%",
-    "--secondary-foreground": "0 0% 100%",
-    "--background": "40 20% 98%",
-    "--foreground": "222 47% 11%",
-    "--card": "0 0% 100%",
-    "--card-foreground": "222 47% 11%",
-    "--muted": "210 40% 96%",
-    "--muted-foreground": "215 16% 47%",
-    "--accent": "346 80% 96%",
-    "--accent-foreground": "346 100% 25%",
-    "--border": "214 32% 91%",
-    "--radius": "0.5rem"
-  },
-  "kiosk_mode_design": {
-    "description": "Full-screen standalone RFID & 10-Digit NISN attendance kiosk designed for school entrance hardware/PCs.",
-    "layout": "Full viewport (100vh), high contrast dark maroon frame (#4A0616), clean white modal display card.",
-    "header": "Displays live digital clock with seconds, Indonesian date (e.g. Selasa, 14 Juli 2026), and active attendance type badge (Kehadiran Utama / Sholat Dhuha / Ekstrakurikuler).",
-    "input_section": {
-      "rfid": "Keyboard emulation auto-focus listener with subtle animated wave pulse visualizer.",
-      "nisn_lookup": "Large 10-digit touch numeric keypad with clear key spacing, backspace, and submit button.",
-      "attendance_selector": "3 prominent toggle cards for 'Kehadiran Harian', 'Sholat Dhuha', and 'Ekstrakurikuler'."
+  "typography": {
+    "headings": {
+      "font_family": "'Plus Jakarta Sans', sans-serif",
+      "weights": ["600 SemiBold", "700 Bold", "800 ExtraBold"],
+      "letter_spacing": "tracking-tight (-0.02em)"
     },
-    "feedback_states": {
-      "success": {
-        "bg_flash": "bg-emerald-600/90 backdrop-blur-md",
-        "audio": "Web Audio API synth high-pitch double beep success chime",
-        "display": "Large green checkmark, Student photo, NISN, Name, Class, and exact timestamp (e.g. '06:45:12 - Tepat Waktu')"
-      },
-      "already_scanned": {
-        "bg_flash": "bg-amber-500/90 backdrop-blur-md",
-        "audio": "Web Audio API dual amber warning tone",
-        "display": "Yellow alert icon, 'Sudah Absen Hari Ini', Timestamp"
-      },
-      "not_found": {
-        "bg_flash": "bg-rose-600/90 backdrop-blur-md",
-        "audio": "Web Audio API low error buzz",
-        "display": "Red cross icon, 'NISN / Kartu Tidak Ditemukan! Silakan hubungi TU.'"
-      }
+    "body": {
+      "font_family": "'Inter', sans-serif",
+      "weights": ["400 Regular", "500 Medium", "600 SemiBold"],
+      "line_height": "leading-relaxed"
+    },
+    "arabic_script": {
+      "font_family": "'Amiri', serif",
+      "usage": "Quran Surah titles, Tahfidz verses, Basmalah banners, and Islamic motto labels",
+      "font_size": "text-lg to text-2xl"
+    },
+    "scale": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2_section": "text-2xl sm:text-3xl font-bold tracking-tight text-slate-900",
+      "h3_card": "text-lg sm:text-xl font-semibold text-slate-800",
+      "body_text": "text-sm sm:text-base text-slate-600 leading-relaxed",
+      "label_overline": "text-xs uppercase font-bold tracking-widest text-amber-700"
     }
   },
   "layout_and_navigation": {
-    "sidebar": {
-      "style": "Accordion grouped sidebar per role with smooth expandable sections.",
-      "groups": [
-        {
-          "role": "Admin",
-          "items": ["Dashboard Utama", "Master Data (Siswa, Guru, Kelas)", "Kelola Akun & User", "Laporan & Rekapitulasi", "Pengaturan Kiosk"]
-        },
-        {
-          "role": "Guru / Wali Kelas",
-          "items": ["Dashboard Guru", "Jurnal Harian & Piket", "Asesmen Kurikulum Merdeka", "Leger Nilai & Rapor", "Program Tahfidz", "Komitmen & Jadwal Kelas"]
-        },
-        {
-          "role": "Siswa / Orang Tua",
-          "items": ["Portal Utama", "Rekap Absensi", "Rapor & Nilai", "Capaian Tahfidz", "Tabungan Siswa"]
-        }
+    "file_type_note": "Target frontend codebase uses JavaScript (.js) files.",
+    "topbar_header": {
+      "style": "Glassmorphism with backdrop blur (`backdrop-blur-md bg-white/90 border-b border-amber-100/60 sticky top-0 z-40`)",
+      "elements": [
+        "Madrasah Logo image placeholder / uploaded brand logo with clean shadow",
+        "School Name: 'MI MIFTANUL JANNAH' + NISM/NPSN metadata tag",
+        "Role Switcher / Active User Badge (Admin, Guru, Siswa)",
+        "Quick Kiosk Launcher Button with pulse indicator",
+        "User profile dropdown & notifications"
       ]
     },
-    "topbar": {
-      "style": "Sticky header with school logo (MI Miftahul Jannah), active academic year badge (2025/2026 Sem 2), active role indicator, quick Kiosk launcher button, and user profile drop-down."
+    "sidebar": {
+      "style": "Clean structured vertical panel with role-based accordion navigation (`w-64 bg-slate-900 text-slate-100 min-h-screen border-r border-slate-800`)",
+      "active_item_style": "bg-gradient-to-r from-rose-900 to-rose-950 text-amber-300 font-semibold border-l-4 border-amber-400 pl-3 shadow-inner",
+      "sections_by_role": {
+        "admin": ["Dashboard Utama", "Data Master (Siswa, Guru, Kelas, Mapel)", "Kiosk Presensi RFID/NISN", "Keuangan & Tabungan", "Manajemen Kurikulum Merdeka", "Laporan & Rapor", "Pengaturan Aplikasi & WA API"],
+        "guru": ["Dashboard Guru", "Jurnal Mengajar", "Presensi Kelas", "Penilaian Kurikulum Merdeka", "Tahfidz Tracker", "Leger Nilai Kelas", "Cetak Rapor Siswa"],
+        "siswa": ["Portal Siswa", "Ringkasan Kehadiran", "Capaian Tahfidz Quran", "Buku Tabungan Saya", "Nilai Rapor Digital"]
+      }
     }
   },
-  "key_modules_design": {
-    "master_data_tables": "Dense Tailwind data tables with search inputs, filter dropdowns (Class 1A-6B), pagination controls, Excel/PDF export buttons, status badges, and action menus.",
-    "kurikulum_merdeka_grades": "Formative & Summatative score entry grids with auto-calculated final grades, achievement descriptors (Capaian Kompetensi), and printable Leger Nilai.",
-    "tahfidz_quran": "Juz 30 & Surah memorization tracker with visual progress bars, status tags (Lancar / Mutqin / Ziyadah / Muraja'ah), and audio/teacher note logs.",
-    "student_savings": "Bank-style savings transaction ledger featuring quick deposit/withdrawal action dialogs, printable receipt generator, and summary stat cards.",
-    "teacher_journals": "Daily classroom journal form with lesson material input, student anecdotal note logger, and piket log."
-  },
-  "media_assets": [
-    {
-      "category": "Islamic Classroom / Learning",
-      "url": "https://images.unsplash.com/photo-1629273229664-11fabc0becc0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxpc2xhbWljJTIwc2Nob29sJTIwZWxlbWVudGFyeSUyMHN0dWRlbnRzJTIwY2xhc3Nyb29tJTIwaW5kb25lc2lhfGVufDB8fHx8MTc5MDQ1NTMzN3ww&ixlib=rb-4.1.0&q=85",
-      "description": "MI Students reading together"
+  "modules_design_specs": {
+    "kiosk_attendance": {
+      "mode": "Full-Screen Immersive High-Density Interface",
+      "theme": "Dark Maroon Canvas (#4A0616) with Glowing Gold Framed Viewport",
+      "camera_viewport": "Live webcam stream framed in 16:9 aspect ratio with optical NISN card detection overlay guides",
+      "rfid_scanner_indicator": "Animated pulsing ring with RFID card icon expecting tap",
+      "feedback_states": {
+        "success": "Emerald Green (#0F5132) flash screen glow + Audio chime + Audio TTS 'Presensi Berhasil' + Student Photo & Name card popup",
+        "warning": "Amber Gold (#D4AF37) subtle warning glow + 'Sudah Presensi Hari Ini'",
+        "error": "Bright Crimson (#9E1B32) flash + 'Kartu NISN Tidak Terdaftar / Foto Tidak Jelas'"
+      }
     },
-    {
-      "category": "Islamic School Activities",
-      "url": "https://images.unsplash.com/photo-1629273229214-d96be4552b9a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHw0fHxpc2xhbWljJTIwc2Nob29sJTIwZWxlbWVudGFyeSUyMHN0dWRlbnRzJTIwY2xhc3Nyb29tJTIwaW5kb25lc2lhfGVufDB8fHx8MTc5MDQ1NTMzN3ww&ixlib=rb-4.1.0&q=85",
-      "description": "Elementary Islamic school students learning Quran"
+    "tahfidz_tracker": {
+      "style": "Islamic Gold & Emerald Cards with Progress Indicators",
+      "components": [
+        "Juz & Surah selection selector with Arabic script display",
+        "Memorization status tags: Ziyadah (Hafalan Baru), Muraja'ah (Pengulangan), Mutqin (Lancar)",
+        "Visual progress bar with percentage complete and verse indicators"
+      ]
+    },
+    "kurikulum_merdeka_assessment": {
+      "style": "High Density Responsive Data Grid",
+      "components": [
+        "TP (Tujuan Pembelajaran) rubrics and qualitative assessment indicators",
+        "Grade ledger table with inline editing, batch input, and score distribution summary",
+        "Filterable by Class, Subject, Academic Year, and Semester"
+      ]
+    },
+    "student_savings_ledger": {
+      "style": "Clean Fintech Card Layout",
+      "components": [
+        "Total Balance highlight hero card in deep green and gold",
+        "Deposit / Withdrawal quick action modal",
+        "Transaction history table with date, amount, debit/credit badge, and note"
+      ]
+    },
+    "printable_report_card_rapor": {
+      "style": "Clean Institutional Print Layout (@media print optimized)",
+      "specifications": [
+        "Official Madrasah Kop Surat header with Madrasah Logo, Ministry of Religious Affairs (Kemenag) branding, and address",
+        "Watermark: Subtle 5% opacity Madrasah emblem background",
+        "Clean 1px black/slate table borders for grades, attendance, and extracurriculars",
+        "Class Teacher & Headmaster signature blocks with official stamp placeholder"
+      ]
     }
-  ],
-  "accessibility_and_testing": {
-    "data_testid_rule": "ALL interactive components, buttons, inputs, links, tabs, table cells, and status indicators MUST include explicit kebab-case data-testid attributes.",
-    "examples": [
-      "data-testid=\"kiosk-nisn-input\"",
-      "data-testid=\"kiosk-submit-btn\"",
-      "data-testid=\"student-search-input\"",
-      "data-testid=\"login-submit-btn\"",
-      "data-testid=\"role-switcher-select\"",
-      "data-testid=\"add-savings-deposit-btn\""
+  },
+  "media_assets": {
+    "image_urls": [
+      {
+        "category": "classroom_learning",
+        "description": "Students in classroom reading and studying",
+        "url": "https://images.unsplash.com/photo-1574130303188-31a915382726?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHw0fHxzY2hvb2wlMjBjbGFzc3Jvb20lMjBzdHVkZW50c3xlbnwwfHx8fDE3OTA0NTg0MDl8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "school_library",
+        "description": "Student in school library with books",
+        "url": "https://images.unsplash.com/photo-1544456203-0af5a69f5789?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwcmVhZGluZyUyMGxpYnJhcnl8ZW58MHx8fHwxNzkwNDU4NDA5fDA&ixlib=rb-4.1.0&q=85"
+      }
     ]
   },
-  "instructions_to_main_agent": [
-    "You are developing JavaScript (.js / .jsx) components for the SIM MI Miftahul Jannah Web App.",
-    "Always apply the custom Maroon & Gold color palette using Tailwind classes (e.g., bg-[#800020], text-[#800020], border-[#D4AF37]/30).",
-    "Ensure Kiosk mode is an isolated full-screen view accessible via a prominent header action button.",
-    "Use Lucide-React icons throughout all navigation menus, action buttons, and table rows for strong visual cues.",
-    "Implement Web Audio API synth sounds (Beep/Chime) for the Attendance Kiosk feedback so no external sound file dependencies are needed.",
-    "Include sample seed data for 20+ students across Classes 1A-6B, Kurikulum Merdeka subject lists, Tahfidz Surahs (Juz 30), Savings ledger history, and Teacher Journals.",
-    "Ensure all interactive elements have valid data-testid attributes."
+  "testing_and_data_testid_conventions": {
+    "rule": "Every button, input, tab, card, link, select, and feedback notification MUST contain a descriptive kebab-case data-testid attribute.",
+    "examples": {
+      "login_submit": "data-testid=\"login-submit-button\"",
+      "role_tab": "data-testid=\"role-tab-guru\"",
+      "kiosk_rfid_input": "data-testid=\"kiosk-rfid-input\"",
+      "kiosk_camera_canvas": "data-testid=\"kiosk-camera-canvas\"",
+      "student_search_input": "data-testid=\"student-search-input\"",
+      "tahfidz_add_button": "data-testid=\"tahfidz-add-record-button\"",
+      "print_rapor_button": "data-testid=\"print-rapor-button\"",
+      "savings_deposit_button": "data-testid=\"savings-deposit-button\""
+    }
+  },
+  "general_ui_ux_guidelines": [
+    "Ensure zero text collision inside cards and tables by enforcing p-4 or p-6 padding.",
+    "Do not use dark gradient overlays on content surfaces. Use crisp solid white/ivory card backgrounds with 1px subtle amber/slate borders.",
+    "All modals, popovers, select dropdowns, and date pickers must have solid non-transparent background colors.",
+    "Use smooth micro-interactions (hover lift, active press states, focus rings) on all interactive elements.",
+    "Use Toast notifications (via sonner / toast hook) for immediate user feedback on all save, update, delete, and kiosk actions.",
+    "Maintain strict mobile responsiveness with sticky header, collapsible sidebar, and scrollable horizontal tables on smaller screens."
   ]
 }

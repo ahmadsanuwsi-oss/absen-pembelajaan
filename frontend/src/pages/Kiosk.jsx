@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Tesseract from "tesseract.js";
 import { API } from "@/lib/api";
+import { useSchool } from "@/context/SchoolContext";
 import { Logo } from "@/components/Logo";
-import { CheckCircle2, AlertTriangle, XCircle, Delete, ScanLine, X, Sun, Sparkles } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Camera, X, Sun, Sparkles, ScanLine, Loader2, Upload } from "lucide-react";
 
 const TYPES = [
   { key: "kehadiran", label: "Kehadiran Harian", icon: CheckCircle2 },
@@ -16,10 +18,8 @@ function playTone(kind) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const now = ctx.currentTime;
     const beep = (freq, start, dur, vol = 0.15) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = freq;
       gain.gain.setValueAtTime(vol, now + start);
       gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
       osc.connect(gain); gain.connect(ctx.destination);
@@ -32,21 +32,49 @@ function playTone(kind) {
   } catch (e) {}
 }
 
+function extractNisn(text) {
+  const digitsOnly = (text || "").replace(/[^0-9]/g, "");
+  const groups = (text || "").match(/\d{8,12}/g);
+  if (groups && groups.length) {
+    groups.sort((a, b) => Math.abs(a.length - 10) - Math.abs(b.length - 10));
+    return groups[0].slice(0, 10);
+  }
+  if (digitsOnly.length >= 10) return digitsOnly.slice(0, 10);
+  return null;
+}
+
 export default function Kiosk() {
   const navigate = useNavigate();
+  const { school } = useSchool();
   const [type, setType] = useState("kehadiran");
-  const [code, setCode] = useState("");
   const [result, setResult] = useState(null);
   const [clock, setClock] = useState(new Date());
+  const [scanning, setScanning] = useState(false);
+  const [camReady, setCamReady] = useState(false);
+  const [camError, setCamError] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const bufferRef = useRef("");
   const lastKeyRef = useRef(0);
   const resultTimer = useRef(null);
   const typeRef = useRef(type);
+  const fileRef = useRef(null);
   typeRef.current = type;
 
+  useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t); }, []);
+
+  // start webcam
   useEffect(() => {
-    const t = setInterval(() => setClock(new Date()), 1000);
-    return () => clearInterval(t);
+    let active = true;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (!active) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; setCamReady(true); }
+      } catch (e) { setCamError(true); }
+    })();
+    return () => { active = false; if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); };
   }, []);
 
   const submitCode = useCallback(async (value) => {
@@ -59,101 +87,105 @@ export default function Kiosk() {
       setResult({ status: "not_found", message: "Terjadi kesalahan koneksi." });
       playTone("error");
     }
-    setCode("");
     clearTimeout(resultTimer.current);
     resultTimer.current = setTimeout(() => setResult(null), 4500);
   }, []);
 
-  // RFID keyboard-emulation listener
+  const runOcr = useCallback(async (imageSource) => {
+    setScanning(true);
+    try {
+      const { data: { text } } = await Tesseract.recognize(imageSource, "eng");
+      const nisn = extractNisn(text);
+      if (nisn) { await submitCode(nisn); }
+      else {
+        setResult({ status: "not_found", message: "Nomor NISN tidak terbaca. Foto lebih jelas & dekat." });
+        playTone("error");
+        clearTimeout(resultTimer.current);
+        resultTimer.current = setTimeout(() => setResult(null), 4000);
+      }
+    } catch (e) {
+      setResult({ status: "not_found", message: "Gagal memproses foto." });
+      playTone("error");
+    } finally { setScanning(false); }
+  }, [submitCode]);
+
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !camReady) return;
+    const v = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = v.videoWidth || 640;
+    canvas.height = v.videoHeight || 480;
+    canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
+    runOcr(canvas);
+  }, [camReady, runOcr]);
+
+  const onFile = (e) => { const f = e.target.files?.[0]; if (f) runOcr(f); e.target.value = ""; };
+
+  // RFID keyboard-emulation listener (primary path)
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === "INPUT") return;
       const now = Date.now();
       if (now - lastKeyRef.current > 100) bufferRef.current = "";
       lastKeyRef.current = now;
-      if (e.key === "Enter") {
-        if (bufferRef.current.length >= 3) submitCode(bufferRef.current);
-        bufferRef.current = "";
-      } else if (/^[a-zA-Z0-9]$/.test(e.key)) {
-        bufferRef.current += e.key;
-      }
+      if (e.key === "Enter") { if (bufferRef.current.length >= 3) submitCode(bufferRef.current); bufferRef.current = ""; }
+      else if (/^[a-zA-Z0-9]$/.test(e.key)) bufferRef.current += e.key;
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [submitCode]);
 
-  const press = (d) => setCode((c) => (c.length < 10 ? c + d : c));
-  const backspace = () => setCode((c) => c.slice(0, -1));
-
   const statusMap = {
-    success: { bg: "bg-emerald-600", icon: CheckCircle2, ring: "text-emerald-100" },
-    already_scanned: { bg: "bg-amber-500", icon: AlertTriangle, ring: "text-amber-100" },
-    not_found: { bg: "bg-rose-600", icon: XCircle, ring: "text-rose-100" },
+    success: { bg: "bg-[#0F5132]", icon: CheckCircle2 },
+    already_scanned: { bg: "bg-amber-500", icon: AlertTriangle },
+    not_found: { bg: "bg-[#9E1B32]", icon: XCircle },
   };
 
   return (
-    <div className="min-h-screen kiosk-pattern text-white flex flex-col relative overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-white/10">
+    <div className="min-h-screen text-white flex flex-col relative overflow-hidden" style={{ background: "#4A0616" }}>
+      <div className="absolute inset-0 islamic-pattern-dark opacity-60" />
+      <header className="relative flex items-center justify-between px-6 sm:px-10 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <Logo size={48} />
-          <div>
-            <div className="font-heading font-extrabold text-lg leading-tight">MI Miftahul Jannah</div>
-            <div className="text-[#D4AF37] text-xs">Kiosk Absensi Digital</div>
-          </div>
+          <div className="bg-white/95 rounded-xl p-1.5"><Logo size={44} /></div>
+          <div><div className="font-heading font-extrabold text-lg leading-tight">{school.school_name}</div><div className="text-[#E9C46A] text-xs">Kiosk Presensi Digital</div></div>
         </div>
         <div className="text-right">
-          <div className="font-heading text-3xl sm:text-4xl font-bold tabular-nums tracking-tight">
-            {clock.toLocaleTimeString("id-ID", { hour12: false })}
-          </div>
-          <div className="text-white/60 text-sm capitalize">
-            {clock.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </div>
+          <div className="font-heading text-3xl sm:text-4xl font-bold tabular-nums tracking-tight">{clock.toLocaleTimeString("id-ID", { hour12: false })}</div>
+          <div className="text-white/60 text-sm capitalize">{clock.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
         </div>
-        <button onClick={() => navigate(-1)} data-testid="exit-kiosk-btn" className="absolute top-4 right-4 sm:static p-2 rounded-lg hover:bg-white/10">
-          <X className="w-6 h-6" />
-        </button>
+        <button onClick={() => navigate(-1)} data-testid="exit-kiosk-btn" className="absolute top-4 right-4 sm:static p-2 rounded-lg hover:bg-white/10"><X className="w-6 h-6" /></button>
       </header>
 
-      {/* Type selector */}
-      <div className="flex justify-center gap-3 sm:gap-4 px-4 py-6 flex-wrap">
+      <div className="relative flex justify-center gap-3 sm:gap-4 px-4 py-6 flex-wrap">
         {TYPES.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setType(t.key)}
-            data-testid={`kiosk-type-${t.key}`}
-            className={`flex items-center gap-2.5 px-5 sm:px-7 py-3.5 rounded-2xl font-semibold text-sm sm:text-base transition-all ${
-              type === t.key ? "bg-[#D4AF37] text-[#4A0616] scale-105 shadow-lg" : "bg-white/10 text-white/80 hover:bg-white/20"
-            }`}
-          >
+          <button key={t.key} onClick={() => setType(t.key)} data-testid={`kiosk-type-${t.key}`}
+            className={`flex items-center gap-2.5 px-5 sm:px-7 py-3.5 rounded-2xl font-semibold text-sm sm:text-base transition-all ${type === t.key ? "bg-[#D4AF37] text-[#4A0616] scale-105 shadow-lg" : "bg-white/10 text-white/80 hover:bg-white/20"}`}>
             <t.icon className="w-5 h-5" /> {t.label}
           </button>
         ))}
       </div>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-10 px-6 pb-10">
-        {/* RFID indicator + keypad */}
-        <div className="flex flex-col items-center gap-6">
-          <div className="relative flex flex-col items-center">
-            <div className="relative w-32 h-32 rounded-full bg-[#D4AF37]/15 flex items-center justify-center pulse-ring">
-              <ScanLine className="w-16 h-16 text-[#D4AF37]" />
-            </div>
-            <p className="mt-4 text-white/70 text-sm text-center max-w-[220px]">Tap kartu RFID Anda,<br />atau ketik 10 digit NISN</p>
+      <div className="relative flex-1 flex flex-col lg:flex-row items-center justify-center gap-10 px-6 pb-10">
+        {/* Camera viewport */}
+        <div className="flex flex-col items-center gap-5">
+          <div className="relative w-[360px] h-[260px] rounded-3xl overflow-hidden border-4 border-[#D4AF37]/60 bg-black/40 shadow-2xl">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" data-testid="kiosk-camera-video" />
+            {!camReady && !camError && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Loader2 className="w-8 h-8 animate-spin" /></div>}
+            {camError && <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 text-center px-4"><Camera className="w-10 h-10 mb-2" /><span className="text-sm">Kamera tidak tersedia. Gunakan unggah foto.</span></div>}
+            {/* NISN framing guides */}
+            <div className="absolute inset-6 border-2 border-dashed border-[#E9C46A]/70 rounded-xl pointer-events-none" />
+            {scanning && <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-[#E9C46A]" /><span className="mt-2 text-sm">Membaca NISN…</span></div>}
           </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 w-[300px]">
-            <div data-testid="kiosk-nisn-display" className="h-14 rounded-xl bg-black/30 border border-white/10 flex items-center justify-center font-heading text-3xl font-bold tabular-nums tracking-[0.15em] mb-4">
-              {code || <span className="text-white/30 text-xl tracking-normal">NISN…</span>}
-            </div>
-            <div className="grid grid-cols-3 gap-2.5">
-              {["1","2","3","4","5","6","7","8","9"].map((n) => (
-                <button key={n} onClick={() => press(n)} data-testid={`keypad-${n}`} className="h-16 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-2xl font-semibold transition-all">{n}</button>
-              ))}
-              <button onClick={backspace} data-testid="keypad-backspace" className="h-16 rounded-xl bg-white/10 hover:bg-rose-500/40 flex items-center justify-center transition-all"><Delete className="w-6 h-6" /></button>
-              <button onClick={() => press("0")} data-testid="keypad-0" className="h-16 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-2xl font-semibold transition-all">0</button>
-              <button onClick={() => submitCode(code)} data-testid="kiosk-submit-btn" className="h-16 rounded-xl bg-[#0D5C3A] hover:bg-[#0a4a2f] flex items-center justify-center font-bold transition-all">OK</button>
-            </div>
+          <p className="text-white/70 text-sm text-center max-w-[320px]">Arahkan angka NISN (10 digit) ke dalam bingkai, lalu tekan <b>Ambil Foto</b>. Kartu RFID juga bisa langsung di-tap.</p>
+          <div className="flex gap-3">
+            <button onClick={capturePhoto} disabled={!camReady || scanning} data-testid="kiosk-capture-btn"
+              className="flex items-center gap-2.5 px-7 py-4 rounded-2xl bg-[#0F5132] hover:bg-[#0a3d25] disabled:opacity-50 font-bold text-lg transition-all active:scale-95">
+              <Camera className="w-6 h-6" /> Ambil Foto & Presensi
+            </button>
+            <button onClick={() => fileRef.current?.click()} disabled={scanning} data-testid="kiosk-upload-btn" className="flex items-center gap-2 px-4 py-4 rounded-2xl bg-white/10 hover:bg-white/20 font-semibold transition-all">
+              <Upload className="w-5 h-5" /> Unggah
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" data-testid="kiosk-file-input" />
           </div>
         </div>
 
@@ -161,26 +193,20 @@ export default function Kiosk() {
         <div className="w-full max-w-md">
           {!result ? (
             <div className="bg-white/5 border border-dashed border-white/20 rounded-3xl h-[380px] flex flex-col items-center justify-center text-white/40">
-              <ScanLine className="w-20 h-20 mb-4" />
-              <p className="text-lg">Menunggu scan…</p>
+              <div className="relative w-24 h-24 rounded-full bg-[#D4AF37]/10 flex items-center justify-center pulse-ring mb-4"><ScanLine className="w-12 h-12 text-[#E9C46A]" /></div>
+              <p className="text-lg">Menunggu presensi…</p>
             </div>
           ) : (
             <div className={`${statusMap[result.status].bg} rounded-3xl p-8 text-center animate-flash-in shadow-2xl`} data-testid="kiosk-result">
               {(() => { const I = statusMap[result.status].icon; return <I className="w-24 h-24 mx-auto mb-4" />; })()}
               {result.student ? (
                 <>
-                  <div className="w-20 h-20 rounded-full bg-white/25 mx-auto flex items-center justify-center text-3xl font-bold font-heading mb-3">
-                    {result.student.name.split(" ").slice(0,2).map((w)=>w[0]).join("")}
-                  </div>
+                  <div className="w-20 h-20 rounded-full bg-white/25 mx-auto flex items-center justify-center text-3xl font-bold font-heading mb-3">{result.student.name.split(" ").slice(0, 2).map((w) => w[0]).join("")}</div>
                   <h2 className="font-heading text-2xl font-bold">{result.student.name}</h2>
                   <p className="text-white/80">NISN {result.student.nisn} · Kelas {result.student.class_name}</p>
-                  <div className="mt-4 inline-block bg-white/20 rounded-full px-5 py-2 font-semibold">
-                    {result.status === "success" ? `${result.time} · ${result.message}` : `${result.message}${result.time ? ` · ${result.time}` : ""}`}
-                  </div>
+                  <div className="mt-4 inline-block bg-white/20 rounded-full px-5 py-2 font-semibold">{result.status === "success" ? `${result.time} · ${result.message}` : `${result.message}${result.time ? ` · ${result.time}` : ""}`}</div>
                 </>
-              ) : (
-                <h2 className="font-heading text-2xl font-bold mt-2">{result.message}</h2>
-              )}
+              ) : (<h2 className="font-heading text-2xl font-bold mt-2">{result.message}</h2>)}
             </div>
           )}
         </div>

@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { PageHeader, TableWrap, EmptyRow } from "@/components/ui-kit";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { BookOpenCheck, Printer } from "lucide-react";
+import { BookOpenCheck, Printer, Download } from "lucide-react";
+import { exportToXlsx } from "@/lib/exportXlsx";
 
 const DESC_BADGE = {
   "Sangat Baik": "bg-emerald-100 text-emerald-700", "Baik": "bg-sky-100 text-sky-700",
@@ -36,7 +37,8 @@ export default function Ledger() {
           <SelectTrigger className="w-44" data-testid="ledger-subject"><SelectValue placeholder="Mapel" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Semua Mapel</SelectItem>{subjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
-        <button onClick={() => window.print()} disabled={!classId} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40" data-testid="print-ledger-btn"><Printer className="w-4 h-4" /> Cetak</button>
+        <button onClick={() => exportToXlsx(rows.map((r, i) => ({ No: i + 1, NISN: r.nisn, Nama: r.name, Formatif: r.formatif, Sumatif: r.sumatif, "Nilai Akhir": r.final, Capaian: r.descriptor })), "Leger Nilai", "leger-nilai.xlsx")} disabled={!classId || rows.length === 0} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#EFE7D8] bg-white text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40" data-testid="export-ledger-btn"><Download className="w-4 h-4" /> Excel</button>
+        <button onClick={() => window.print()} disabled={!classId} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#EFE7D8] bg-white text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40" data-testid="print-ledger-btn"><Printer className="w-4 h-4" /> Cetak</button>
       </PageHeader>
 
       {!classId ? (
