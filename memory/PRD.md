@@ -21,6 +21,12 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - Kiosk: absensi cepat publik (tanpa login).
 
 ## Implemented (2026-06)
+### Iterasi 4
+- **Jadwal Rekap WA Otomatis**: cron `monthly-wa-recap` (tiap tanggal 1, 00:00 UTC) → POST /api/cron/monthly-wa-recap (Bearer secret) kirim rekap kehadiran bulan lalu ke semua orang tua + wali kelas otomatis.
+- **Unduh Backup**: GET /api/backups/download/{stamp} (admin, ZIP; stamp divalidasi regex `\d{8}-\d{6}` anti path-traversal) + tombol Unduh ZIP per baris di panel Pengaturan.
+- **Log Pengiriman WA**: setiap kirim dicatat ke koleksi wa_log (target dimask, konteks, status ok/skipped/failed, alasan). GET /api/wa-log (admin) + tabel "Log Pengiriman WhatsApp" di Pengaturan.
+- Uji: 92/92 tes backend lulus; smoke frontend lulus.
+
 ### Iterasi 3
 - **Rapor Sekelas**: GET /api/report/rapor-class/{class_id} + tombol "Cetak Sekelas" → semua siswa satu kelas dirender bertumpuk dengan page-break, cetak/simpan jadi satu PDF.
 - **Backup harian otomatis**: platform cron `.emergent/crons.yml` (01:00 WIB) → POST /api/cron/backup (Bearer WEBHOOK_CRON_SECRET, kerja di background) dump 14 koleksi ke /app/backups (retensi 7). Panel di Pengaturan: GET /api/backups + tombol "Backup Sekarang" (/api/backups/run-now).

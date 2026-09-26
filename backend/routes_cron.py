@@ -71,12 +71,14 @@ async def run_backup_now(background_tasks: BackgroundTasks, user: dict = Depends
 
 @router.get("/backups/download/{stamp}")
 async def download_backup(stamp: str, user: dict = Depends(require_roles("admin"))):
-    safe = "".join(ch for ch in stamp if ch.isdigit() or ch == "-")
-    folder = BACKUP_DIR / f"backup-{safe}"
+    import re
+    if not re.fullmatch(r"\d{8}-\d{6}", stamp):
+        raise HTTPException(404, "Backup tidak ditemukan")
+    folder = BACKUP_DIR / f"backup-{stamp}"
     if not folder.is_dir():
         raise HTTPException(404, "Backup tidak ditemukan")
-    zip_path = Path(tempfile.gettempdir()) / f"backup-{safe}.zip"
+    zip_path = Path(tempfile.gettempdir()) / f"backup-{stamp}.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for p in folder.glob("*.json"):
             z.write(p, p.name)
-    return FileResponse(zip_path, media_type="application/zip", filename=f"backup-{safe}.zip")
+    return FileResponse(zip_path, media_type="application/zip", filename=f"backup-{stamp}.zip")
