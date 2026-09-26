@@ -21,6 +21,18 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - Kiosk: absensi cepat publik (tanpa login).
 
 ## Implemented (2026-06)
+### Iterasi 2
+- Absensi manual (tombol hadir/terlambat/izin/sakit/alpa) di tab "Input Manual", dengan validasi status di backend.
+- Export Excel (.xlsx) untuk Leger nilai & Rekap absensi bulanan (SheetJS/xlsx).
+- Rapor Kurikulum Merdeka cetak: kop surat + logo, tabel nilai (akhir=40% formatif+60% sumatif) + capaian, rekap kehadiran, tahfidz, tabungan, blok tanda tangan wali kelas & kepala madrasah (print via @media print).
+- Kiosk presensi via KAMERA foto NISN 10 digit + OCR client-side Tesseract.js (auto-submit) + fallback unggah foto + RFID keyboard-emulation. Keypad ketik dihapus.
+- Halaman Pengaturan (Admin): identitas madrasah, upload logo (base64), URL & API key WhatsApp.
+- Rombak desain total: maroon+emerald+gold di atas ivory hangat, pola geometris Islami, kaligrafi Basmalah, kartu bersih, print styles.
+- Backend baru: routes_settings.py (settings + public), routes_report.py (rapor).
+- Uji: 55/55 tes backend lulus; smoke frontend lulus.
+
+### Iterasi 1
+
 - Auth: login, /me, change-password, brute-force lockout, admin seed (ahmadsanuwsi@gmail.com).
 - Master data: Students, Teachers, Classes, Subjects (CRUD + search + pagination + filter).
 - User accounts: create guru/siswa linked to teacher/student, manual reset password, delete (guard last admin).

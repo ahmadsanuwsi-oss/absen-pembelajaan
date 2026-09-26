@@ -73,6 +73,10 @@ async def kiosk_scan(input: KioskScanInput):
 
 @router.post("/attendance/manual")
 async def manual_attendance(input: ManualAttendanceInput, user: dict = Depends(require_roles("admin", "guru"))):
+    if input.status not in ("hadir", "terlambat", "izin", "sakit", "alpa"):
+        raise HTTPException(400, "Status absensi tidak valid")
+    if input.type not in ATTENDANCE_TYPES:
+        raise HTTPException(400, "Jenis absensi tidak valid")
     date = input.date or today_str()
     existing = await db.attendance.find_one({"student_id": input.student_id, "type": input.type, "date": date})
     payload = {"status": input.status, "time": local_now().strftime("%H:%M:%S"), "source": "manual", "type": input.type, "date": date}
