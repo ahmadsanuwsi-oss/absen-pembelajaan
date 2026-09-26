@@ -97,6 +97,7 @@ export default function Kiosk() {
       const { data: { text } } = await Tesseract.recognize(imageSource, "eng");
       const nisn = extractNisn(text);
       if (nisn) { await submitCode(nisn); }
+      // Privasi: foto TIDAK disimpan/diunggah. Hanya 10 digit NISN dikirim ke server; canvas/gambar dibuang setelah dibaca.
       else {
         setResult({ status: "not_found", message: "Nomor NISN tidak terbaca. Foto lebih jelas & dekat." });
         playTone("error");

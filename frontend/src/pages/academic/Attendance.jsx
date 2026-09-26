@@ -3,7 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import { PageHeader, TableWrap, EmptyRow } from "@/components/ui-kit";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CheckSquare, Download } from "lucide-react";
+import { CheckSquare, Download, MessageCircle } from "lucide-react";
 import { exportToXlsx } from "@/lib/exportXlsx";
 import { toast } from "sonner";
 
@@ -65,6 +65,16 @@ export default function Attendance() {
     exportToXlsx(rows, "Rekap Absensi", `rekap-absensi-${month}.xlsx`);
   };
 
+  const [waSending, setWaSending] = useState(false);
+  const blastWa = async () => {
+    setWaSending(true);
+    try {
+      const { data } = await api.post("/whatsapp/recap-blast", null, { params: { class_id: classFilter, month, type } });
+      toast.success(`WA rekap dikirim ke ${data.count} nomor (bulan ${data.month})`);
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+    finally { setWaSending(false); }
+  };
+
   return (
     <div>
       <PageHeader title="Absensi & Rekapitulasi" subtitle="Data presensi dari kiosk & input manual" icon={CheckSquare} overline="Akademik">
@@ -83,7 +93,7 @@ export default function Attendance() {
         <button onClick={() => setTab("rekap")} data-testid="tab-rekap" className={`px-4 py-2 rounded-lg text-sm font-semibold ${tab === "rekap" ? "bg-[#800020] text-white" : "bg-white border border-[#EFE7D8] text-slate-600"}`}>Rekap Bulanan</button>
         <button onClick={() => setTab("manual")} data-testid="tab-manual" className={`px-4 py-2 rounded-lg text-sm font-semibold ${tab === "manual" ? "bg-[#800020] text-white" : "bg-white border border-[#EFE7D8] text-slate-600"}`}>Input Manual</button>
         {tab === "rekap"
-          ? <><Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40 bg-white" data-testid="att-month" /><button onClick={exportRecap} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#EFE7D8] bg-white text-sm text-slate-600 hover:bg-slate-50" data-testid="export-recap-btn"><Download className="w-4 h-4" /> Excel</button></>
+          ? <><Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40 bg-white" data-testid="att-month" /><button onClick={exportRecap} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#EFE7D8] bg-white text-sm text-slate-600 hover:bg-slate-50" data-testid="export-recap-btn"><Download className="w-4 h-4" /> Excel</button><button onClick={blastWa} disabled={waSending} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0F5132] text-white text-sm font-semibold hover:bg-[#0a3d25] disabled:opacity-50" data-testid="wa-blast-btn"><MessageCircle className="w-4 h-4" /> Kirim WA</button></>
           : <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40 bg-white" data-testid="att-date" />}
       </div>
 

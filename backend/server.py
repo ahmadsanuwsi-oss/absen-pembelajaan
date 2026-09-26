@@ -17,6 +17,8 @@ import routes_savings
 import routes_dashboard
 import routes_settings
 import routes_report
+import routes_cron
+import routes_whatsapp
 from auth import seed_admin
 from seed import seed_data, ensure_indexes
 
@@ -30,6 +32,8 @@ app.include_router(routes_savings.router)
 app.include_router(routes_dashboard.router)
 app.include_router(routes_settings.router)
 app.include_router(routes_report.router)
+app.include_router(routes_cron.router)
+app.include_router(routes_whatsapp.router)
 
 
 @app.get("/api/")

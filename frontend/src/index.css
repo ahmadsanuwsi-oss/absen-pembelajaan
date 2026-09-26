@@ -83,5 +83,7 @@ h1, h2, h3, h4, .font-heading {
     .no-print { display: none !important; }
     body { background: #fff !important; }
     .print-area { box-shadow: none !important; border: none !important; margin: 0 !important; }
+    .rapor-page { break-after: page; page-break-after: always; }
+    .rapor-page:last-child { break-after: auto; page-break-after: auto; }
     @page { size: A4; margin: 14mm; }
 }

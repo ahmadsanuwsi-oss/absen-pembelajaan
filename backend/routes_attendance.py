@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from db import db, now_iso, new_id, paginate
 from auth import require_roles
+from whatsapp import notify_attendance
 
 router = APIRouter(prefix="/api", tags=["attendance"])
 
@@ -33,7 +34,7 @@ class ManualAttendanceInput(BaseModel):
 
 
 @router.post("/kiosk/scan")
-async def kiosk_scan(input: KioskScanInput):
+async def kiosk_scan(input: KioskScanInput, background_tasks: BackgroundTasks):
     if input.type not in ATTENDANCE_TYPES:
         raise HTTPException(400, "Jenis absensi tidak valid")
     code = input.code.strip()
@@ -63,6 +64,10 @@ async def kiosk_scan(input: KioskScanInput):
         "time": time_str, "status": status, "source": "kiosk", "created_at": now_iso(),
     }
     await db.attendance.insert_one(doc)
+    background_tasks.add_task(
+        notify_attendance, student.get("parent_phone"), student["name"], class_name,
+        TYPE_LABELS.get(input.type, input.type), time_str, date,
+    )
     return {
         "status": "success",
         "message": "Tepat Waktu" if status == "hadir" else "Terlambat",
