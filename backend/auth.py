@@ -73,6 +73,28 @@ def require_duty(*duties):
     return checker
 
 
+async def accessible_class_ids(user: dict):
+    """Kumpulan class_id yang boleh diakses guru (wali kelas + kelas mapel + kelas tugas tambahan).
+    None = tanpa filter (admin/siswa)."""
+    if user.get("role") != "guru":
+        return None
+    ids = set(user.get("teaching_class_ids") or [])
+    for cls in (user.get("duty_classes") or {}).values():
+        ids.update(cls or [])
+    tid = user.get("teacher_id")
+    if tid:
+        walis = await db.classes.find({"wali_kelas_id": tid}, {"_id": 0, "id": 1}).to_list(50)
+        ids.update(c["id"] for c in walis)
+    return ids
+
+
+def duty_class_ids(user: dict, duty: str):
+    """Set class_id untuk satu tugas tambahan. None = tanpa filter (admin/siswa)."""
+    if user.get("role") != "guru":
+        return None
+    return set((user.get("duty_classes") or {}).get(duty) or [])
+
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 

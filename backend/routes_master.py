@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 import re
 from db import db, now_iso, new_id, paginate
-from auth import require_roles, hash_password
+from auth import require_roles, hash_password, accessible_class_ids
 
 VALID_DUTIES = ("tabungan", "tahfidz", "tartil", "pramuka")
 USERNAME_RE = re.compile(r"^[a-z0-9._]{3,30}$")
@@ -21,6 +21,9 @@ class ClassInput(BaseModel):
 @router.get("/classes")
 async def list_classes(user: dict = Depends(require_roles())):
     items = await db.classes.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    acc = await accessible_class_ids(user)
+    if acc is not None:
+        items = [c for c in items if c["id"] in acc]
     for c in items:
         c["student_count"] = await db.students.count_documents({"class_id": c["id"]})
         if c.get("wali_kelas_id"):
@@ -59,7 +62,12 @@ class SubjectInput(BaseModel):
 
 @router.get("/subjects")
 async def list_subjects(user: dict = Depends(require_roles())):
-    return await db.subjects.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    items = await db.subjects.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    if user.get("role") == "guru":
+        mp = set(user.get("mapel_ids") or [])
+        if mp:
+            items = [s for s in items if s["id"] in mp]
+    return items
 
 
 @router.post("/subjects")
@@ -136,6 +144,12 @@ async def list_students(page: int = 1, limit: int = 10, search: str = "", class_
         q["class_id"] = class_id
     if search:
         q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"nisn": {"$regex": search, "$options": "i"}}]
+    acc = await accessible_class_ids(user)
+    if acc is not None:
+        if class_id and class_id not in acc:
+            raise HTTPException(403, "Kelas ini tidak termasuk tugas Anda")
+        if not class_id:
+            q["class_id"] = {"$in": list(acc)}
     result = await paginate(db.students, q, page, limit, "name", 1)
     classes = {c["id"]: c["name"] for c in await db.classes.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
     for s in result["items"]:
@@ -188,6 +202,9 @@ class UserAccountInput(BaseModel):
     student_id: Optional[str] = None
     teacher_id: Optional[str] = None
     extra_duties: Optional[List[str]] = None
+    duty_classes: Optional[Dict[str, List[str]]] = None
+    mapel_ids: Optional[List[str]] = None
+    teaching_class_ids: Optional[List[str]] = None
 
 
 class UserUpdateInput(BaseModel):
@@ -195,6 +212,9 @@ class UserUpdateInput(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     extra_duties: Optional[List[str]] = None
+    duty_classes: Optional[Dict[str, List[str]]] = None
+    mapel_ids: Optional[List[str]] = None
+    teaching_class_ids: Optional[List[str]] = None
 
 
 class ResetPasswordInput(BaseModel):
@@ -223,11 +243,16 @@ async def create_user(input: UserAccountInput, user: dict = Depends(require_role
     email = (input.email or "").lower().strip() or None
     if email and await db.users.find_one({"email": email}):
         raise HTTPException(400, "Email sudah digunakan")
-    duties = [d for d in (input.extra_duties or []) if d in VALID_DUTIES] if input.role == "guru" else []
+    is_guru = input.role == "guru"
+    duties = [d for d in (input.extra_duties or []) if d in VALID_DUTIES] if is_guru else []
+    duty_classes = {d: list(cls or []) for d, cls in (input.duty_classes or {}).items() if d in VALID_DUTIES} if is_guru else {}
+    mapel_ids = list(input.mapel_ids or []) if is_guru else []
+    teaching_class_ids = list(input.teaching_class_ids or []) if is_guru else []
     doc = {
         "id": new_id(), "username": username, "email": email, "password_hash": hash_password(input.password),
         "name": input.name, "role": input.role, "student_id": input.student_id,
-        "teacher_id": input.teacher_id, "extra_duties": duties, "created_at": now_iso(),
+        "teacher_id": input.teacher_id, "extra_duties": duties, "duty_classes": duty_classes,
+        "mapel_ids": mapel_ids, "teaching_class_ids": teaching_class_ids, "created_at": now_iso(),
     }
     await db.users.insert_one(doc)
     doc.pop("password_hash", None)
@@ -257,6 +282,12 @@ async def update_user(uid: str, input: UserUpdateInput, user: dict = Depends(req
         upd["name"] = input.name.strip()
     if input.extra_duties is not None:
         upd["extra_duties"] = [d for d in input.extra_duties if d in VALID_DUTIES] if target.get("role") == "guru" else []
+    if input.duty_classes is not None:
+        upd["duty_classes"] = {d: list(cls or []) for d, cls in input.duty_classes.items() if d in VALID_DUTIES} if target.get("role") == "guru" else {}
+    if input.mapel_ids is not None:
+        upd["mapel_ids"] = list(input.mapel_ids) if target.get("role") == "guru" else []
+    if input.teaching_class_ids is not None:
+        upd["teaching_class_ids"] = list(input.teaching_class_ids) if target.get("role") == "guru" else []
     if upd:
         await db.users.update_one({"id": uid}, {"$set": upd})
     return await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})

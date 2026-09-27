@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from db import db, now_iso, new_id, paginate
-from auth import require_roles
+from auth import require_roles, accessible_class_ids, duty_class_ids
 from whatsapp import notify_attendance
 
 router = APIRouter(prefix="/api", tags=["attendance"])
@@ -98,9 +98,17 @@ async def manual_attendance(input: ManualAttendanceInput, user: dict = Depends(r
         raise HTTPException(400, "Status absensi tidak valid")
     if input.type not in ATTENDANCE_TYPES:
         raise HTTPException(400, "Jenis absensi tidak valid")
-    req_duty = DUTY_FOR_TYPE.get(input.type)
-    if req_duty and user.get("role") == "guru" and req_duty not in (user.get("extra_duties") or []):
-        raise HTTPException(403, "Tidak memiliki tugas tambahan untuk jenis absensi ini")
+    if user.get("role") == "guru":
+        student = await db.students.find_one({"id": input.student_id}, {"_id": 0, "class_id": 1})
+        cid = student.get("class_id") if student else None
+        req_duty = DUTY_FOR_TYPE.get(input.type)
+        if req_duty:
+            if req_duty not in (user.get("extra_duties") or []) or cid not in duty_class_ids(user, req_duty):
+                raise HTTPException(403, "Tidak memiliki tugas untuk jenis absensi/kelas ini")
+        else:
+            acc = await accessible_class_ids(user)
+            if acc is not None and cid not in acc:
+                raise HTTPException(403, "Kelas ini tidak termasuk tugas Anda")
     date = input.date or today_str()
     existing = await db.attendance.find_one({"student_id": input.student_id, "type": input.type, "date": date})
     payload = {"status": input.status, "time": local_now().strftime("%H:%M:%S"), "source": "manual", "type": input.type, "date": date}
@@ -123,6 +131,14 @@ async def list_attendance(date: str = "", type: str = "", class_id: str = "", pa
     if class_id:
         sids = [s["id"] for s in await db.students.find({"class_id": class_id}, {"_id": 0, "id": 1}).to_list(500)]
         q["student_id"] = {"$in": sids}
+    if user.get("role") == "guru":
+        acc = await accessible_class_ids(user)
+        if acc is not None:
+            if class_id and class_id not in acc:
+                raise HTTPException(403, "Kelas ini tidak termasuk tugas Anda")
+            if not class_id:
+                asids = [s["id"] for s in await db.students.find({"class_id": {"$in": list(acc)}}, {"_id": 0, "id": 1}).to_list(1000)]
+                q["student_id"] = {"$in": asids}
     result = await paginate(db.attendance, q, page, limit, "date", -1)
     ids = list({r["student_id"] for r in result["items"]})
     students = {s["id"]: s for s in await db.students.find({"id": {"$in": ids}}, {"_id": 0}).to_list(500)}
@@ -142,6 +158,13 @@ async def attendance_recap(class_id: str = "", type: str = "datang", month: str 
     sq = {}
     if class_id:
         sq["class_id"] = class_id
+    if user.get("role") == "guru":
+        acc = await accessible_class_ids(user)
+        if acc is not None:
+            if class_id and class_id not in acc:
+                raise HTTPException(403, "Kelas ini tidak termasuk tugas Anda")
+            if not class_id:
+                sq["class_id"] = {"$in": list(acc)}
     students = await db.students.find(sq, {"_id": 0}).sort("name", 1).to_list(500)
     recap = []
     for s in students:

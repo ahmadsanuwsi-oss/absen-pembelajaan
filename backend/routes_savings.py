@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from db import db, now_iso, new_id, paginate
-from auth import require_roles, require_duty
+from auth import require_roles, require_duty, duty_class_ids
 
 router = APIRouter(prefix="/api", tags=["savings"])
 
@@ -26,6 +26,9 @@ async def get_balance(student_id: str) -> float:
 @router.get("/savings/summary")
 async def savings_summary(user: dict = Depends(require_roles("admin", "guru"))):
     students = await db.students.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    if user.get("role") == "guru":
+        allowed = duty_class_ids(user, "tabungan") or set()
+        students = [s for s in students if s.get("class_id") in allowed]
     classes = {c["id"]: c["name"] for c in await db.classes.find({}, {"_id": 0}).to_list(200)}
     rows = []
     total = 0.0
@@ -41,12 +44,18 @@ async def savings_detail(student_id: str, user: dict = Depends(require_roles("ad
     student = await db.students.find_one({"id": student_id}, {"_id": 0})
     if not student:
         raise HTTPException(404, "Siswa tidak ditemukan")
+    if user.get("role") == "guru" and student.get("class_id") not in (duty_class_ids(user, "tabungan") or set()):
+        raise HTTPException(403, "Kelas siswa ini tidak termasuk tugas tabungan Anda")
     txns = await db.savings.find({"student_id": student_id}, {"_id": 0}).sort("created_at", -1).to_list(2000)
     return {"student": {"id": student["id"], "name": student["name"], "nisn": student["nisn"]}, "balance": await get_balance(student_id), "transactions": txns}
 
 
 @router.post("/savings")
 async def create_savings_txn(input: SavingsTxnInput, user: dict = Depends(require_duty("tabungan"))):
+    if user.get("role") == "guru":
+        stu = await db.students.find_one({"id": input.student_id}, {"_id": 0, "class_id": 1})
+        if not stu or stu.get("class_id") not in (duty_class_ids(user, "tabungan") or set()):
+            raise HTTPException(403, "Kelas siswa ini tidak termasuk tugas tabungan Anda")
     if input.kind not in ("setoran", "penarikan"):
         raise HTTPException(400, "Jenis transaksi tidak valid")
     if input.amount <= 0:

@@ -2,9 +2,22 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from db import db, now_iso, new_id, paginate
-from auth import require_roles, require_duty
+from auth import require_roles, require_duty, accessible_class_ids, duty_class_ids
 
 router = APIRouter(prefix="/api", tags=["teacher"])
+
+
+async def _guru_can_grade(user, class_id, subject_id=None):
+    """True jika guru boleh menilai/jurnal untuk kelas (& mapel bila ditetapkan)."""
+    if user.get("role") != "guru":
+        return True
+    acc = await accessible_class_ids(user)
+    if acc is not None and class_id not in acc:
+        return False
+    mp = set(user.get("mapel_ids") or [])
+    if subject_id is not None and mp and subject_id not in mp:
+        return False
+    return True
 
 
 # ---------------- Assessments / Nilai (Kurikulum Merdeka) ----------------
@@ -36,6 +49,8 @@ async def list_assessments(class_id: str = "", subject_id: str = "", kind: str =
 
 @router.post("/assessments")
 async def create_assessment(input: AssessmentInput, user: dict = Depends(require_roles("admin", "guru"))):
+    if not await _guru_can_grade(user, input.class_id, input.subject_id):
+        raise HTTPException(403, "Kelas/mapel ini tidak termasuk tugas Anda")
     doc = {"id": new_id(), **input.model_dump(), "date": input.date or now_iso()[:10], "created_at": now_iso()}
     await db.assessments.insert_one(doc)
     doc.pop("_id", None)
@@ -44,6 +59,8 @@ async def create_assessment(input: AssessmentInput, user: dict = Depends(require
 
 @router.put("/assessments/{aid}")
 async def update_assessment(aid: str, input: AssessmentInput, user: dict = Depends(require_roles("admin", "guru"))):
+    if not await _guru_can_grade(user, input.class_id, input.subject_id):
+        raise HTTPException(403, "Kelas/mapel ini tidak termasuk tugas Anda")
     res = await db.assessments.update_one({"id": aid}, {"$set": input.model_dump()})
     if res.matched_count == 0:
         raise HTTPException(404, "Nilai tidak ditemukan")
@@ -52,12 +69,18 @@ async def update_assessment(aid: str, input: AssessmentInput, user: dict = Depen
 
 @router.delete("/assessments/{aid}")
 async def delete_assessment(aid: str, user: dict = Depends(require_roles("admin", "guru"))):
+    if user.get("role") == "guru":
+        a = await db.assessments.find_one({"id": aid}, {"_id": 0, "class_id": 1, "subject_id": 1})
+        if a and not await _guru_can_grade(user, a.get("class_id"), a.get("subject_id")):
+            raise HTTPException(403, "Kelas/mapel ini tidak termasuk tugas Anda")
     await db.assessments.delete_one({"id": aid})
     return {"message": "Nilai dihapus"}
 
 
 @router.get("/ledger")
 async def grade_ledger(class_id: str, subject_id: str = "", user: dict = Depends(require_roles("admin", "guru"))):
+    if not await _guru_can_grade(user, class_id, subject_id or None):
+        raise HTTPException(403, "Kelas/mapel ini tidak termasuk tugas Anda")
     students = await db.students.find({"class_id": class_id}, {"_id": 0}).sort("name", 1).to_list(500)
     q = {"class_id": class_id}
     if subject_id:
@@ -104,6 +127,8 @@ async def list_journals(class_id: str = "", page: int = 1, limit: int = 20, user
 
 @router.post("/journals")
 async def create_journal(input: JournalInput, user: dict = Depends(require_roles("admin", "guru"))):
+    if not await _guru_can_grade(user, input.class_id, input.subject_id):
+        raise HTTPException(403, "Kelas/mapel ini tidak termasuk tugas Anda")
     doc = {"id": new_id(), **input.model_dump(), "teacher_id": user.get("teacher_id"), "created_at": now_iso()}
     await db.journals.insert_one(doc)
     doc.pop("_id", None)
@@ -112,6 +137,10 @@ async def create_journal(input: JournalInput, user: dict = Depends(require_roles
 
 @router.delete("/journals/{jid}")
 async def delete_journal(jid: str, user: dict = Depends(require_roles("admin", "guru"))):
+    if user.get("role") == "guru":
+        j = await db.journals.find_one({"id": jid}, {"_id": 0, "teacher_id": 1})
+        if j and j.get("teacher_id") != user.get("teacher_id"):
+            raise HTTPException(403, "Anda hanya dapat menghapus jurnal sendiri")
     await db.journals.delete_one({"id": jid})
     return {"message": "Jurnal dihapus"}
 
@@ -208,6 +237,10 @@ async def list_tahfidz(student_id: str = "", class_id: str = "", user: dict = De
 
 @router.post("/tahfidz")
 async def create_tahfidz(input: TahfidzInput, user: dict = Depends(require_duty("tahfidz"))):
+    if user.get("role") == "guru":
+        stu = await db.students.find_one({"id": input.student_id}, {"_id": 0, "class_id": 1})
+        if not stu or stu.get("class_id") not in (duty_class_ids(user, "tahfidz") or set()):
+            raise HTTPException(403, "Kelas siswa ini tidak termasuk tugas tahfidz Anda")
     doc = {"id": new_id(), **input.model_dump(), "date": input.date or now_iso()[:10], "created_at": now_iso()}
     await db.tahfidz.insert_one(doc)
     doc.pop("_id", None)
@@ -216,6 +249,11 @@ async def create_tahfidz(input: TahfidzInput, user: dict = Depends(require_duty(
 
 @router.delete("/tahfidz/{tid}")
 async def delete_tahfidz(tid: str, user: dict = Depends(require_duty("tahfidz"))):
+    if user.get("role") == "guru":
+        rec = await db.tahfidz.find_one({"id": tid}, {"_id": 0, "student_id": 1})
+        stu = await db.students.find_one({"id": rec["student_id"]}, {"_id": 0, "class_id": 1}) if rec else None
+        if not stu or stu.get("class_id") not in (duty_class_ids(user, "tahfidz") or set()):
+            raise HTTPException(403, "Kelas siswa ini tidak termasuk tugas tahfidz Anda")
     await db.tahfidz.delete_one({"id": tid})
     return {"message": "Catatan tahfidz dihapus"}
 
