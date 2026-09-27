@@ -42,6 +42,14 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - **Kelola Akun UI**: komponen `GuruAssignments` (chips Mapel + Kelas diampu + toggle tugas → ceklis kelas per tugas), pada dialog Buat & Edit akun.
 - Uji: iterasi 8 backend 16/16 + frontend 100% lulus, tidak ada isu kritis. Catatan minor tester: kartu dashboard guru (Total Tahfidz) belum difilter per-scope (non-blocking).
 
+### Iterasi 9 — Dashboard Guru Terscope + Sembunyikan Menu Wali + Kiosk Scan NISN + Import/Export Excel
+- **Dashboard guru difilter per-scope**: `guru_dashboard` menghitung class_students/present/total_assessments/total_tahfidz hanya dari kelas yang diakses guru (accessible_class_ids), bukan total sekolah.
+- **Flag `is_wali`** ditambahkan ke response `/auth/login` & `/auth/me` (guru). Menu grup "Wali Kelas" (Absensi Kelas + Manajemen Kelas) hanya tampil bila `user.is_wali` true.
+- **Kiosk tanpa foto**: kamera + Tesseract OCR dihapus dari `Kiosk.jsx`. Diganti input **Scan/Ketik NISN** (`kiosk-nisn-input` + tombol `kiosk-nisn-submit`) — mendukung barcode scanner atau ketik manual; input RFID tetap ada. Endpoint `/api/kiosk/scan` menerima NISN atau RFID.
+- **Import/Export Excel (.xlsx)** data siswa & guru: backend `POST /api/students/import` & `POST /api/teachers/import` (admin, upsert by NISN/NIP, map nama kelas→id, gender & Wali Kelas diparse). Frontend tombol Export/Import di halaman Data Siswa & Data Guru (`lib/exportXlsx.js`: exportToXlsx + readXlsx).
+- Uji: iterasi 9 backend 7/7 + frontend 100% lulus, tidak ada isu kritis.
+
+
 
 
 ## Implemented (2026-06)
