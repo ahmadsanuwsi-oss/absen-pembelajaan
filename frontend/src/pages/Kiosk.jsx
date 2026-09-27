@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Tesseract from "tesseract.js";
 import { API } from "@/lib/api";
 import { useSchool } from "@/context/SchoolContext";
 import { Logo } from "@/components/Logo";
 import { ATTENDANCE_TYPES, waLinkFromPhone } from "@/config/attendanceTypes";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { CheckCircle2, AlertTriangle, XCircle, Camera, X, ScanLine, Loader2, Upload, CreditCard, MessageCircle, Info } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, X, ScanLine, CreditCard, MessageCircle, Info, Hash } from "lucide-react";
 
 function playTone(kind) {
   try {
@@ -19,69 +18,35 @@ function playTone(kind) {
   } catch (e) {}
 }
 
-function extractNisn(text) {
-  const groups = (text || "").match(/\d{8,12}/g);
-  if (groups?.length) { groups.sort((a, b) => Math.abs(a.length - 10) - Math.abs(b.length - 10)); return groups[0].slice(0, 10); }
-  const d = (text || "").replace(/[^0-9]/g, "");
-  return d.length >= 10 ? d.slice(0, 10) : null;
-}
-
 export default function Kiosk() {
   const navigate = useNavigate();
   const { school } = useSchool();
   const [type, setType] = useState("datang");
   const [code, setCode] = useState("");
+  const [nisn, setNisn] = useState("");
   const [result, setResult] = useState(null);
   const [clock, setClock] = useState(new Date());
-  const [scanning, setScanning] = useState(false);
-  const [camReady, setCamReady] = useState(false);
-  const [camError, setCamError] = useState(false);
   const [classes, setClasses] = useState([]);
   const [selClass, setSelClass] = useState("");
-  const videoRef = useRef(null); const streamRef = useRef(null); const inputRef = useRef(null);
-  const timer = useRef(null); const fileRef = useRef(null); const typeRef = useRef(type);
+  const inputRef = useRef(null);
+  const nisnRef = useRef(null);
+  const timer = useRef(null);
+  const typeRef = useRef(type);
   typeRef.current = type;
 
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { axios.get(`${API}/kiosk/classes`).then((r) => { setClasses(r.data); if (r.data[0]) setSelClass(r.data[0].id); }).catch(() => {}); }, []);
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try { const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); if (!active) { s.getTracks().forEach((t) => t.stop()); return; } streamRef.current = s; if (videoRef.current) { videoRef.current.srcObject = s; setCamReady(true); } }
-      catch (e) { setCamError(true); }
-    })();
-    return () => { active = false; if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); };
-  }, []);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
   const submitCode = useCallback(async (value) => {
     const v = String(value || "").trim();
     if (v.length < 3) return;
     try { const { data } = await axios.post(`${API}/kiosk/scan`, { code: v, type: typeRef.current }); setResult(data); playTone(data.status === "success" ? "success" : data.status === "already_scanned" ? "warning" : "error"); }
     catch (e) { setResult({ status: "not_found", message: "Kesalahan koneksi." }); playTone("error"); }
-    setCode("");
+    setCode(""); setNisn("");
     clearTimeout(timer.current); timer.current = setTimeout(() => setResult(null), 4500);
     inputRef.current?.focus();
   }, []);
-
-  const runOcr = useCallback(async (src) => {
-    setScanning(true);
-    try {
-      const { data: { text } } = await Tesseract.recognize(src, "eng");
-      const nisn = extractNisn(text);
-      // Privasi: foto TIDAK disimpan; hanya 10 digit NISN dikirim.
-      if (nisn) await submitCode(nisn);
-      else { setResult({ status: "not_found", message: "NISN tidak terbaca. Foto lebih jelas." }); playTone("error"); clearTimeout(timer.current); timer.current = setTimeout(() => setResult(null), 4000); }
-    } catch (e) { setResult({ status: "not_found", message: "Gagal memproses foto." }); playTone("error"); }
-    finally { setScanning(false); }
-  }, [submitCode]);
-
-  const capture = useCallback(() => {
-    if (!videoRef.current || !camReady) return;
-    const v = videoRef.current, c = document.createElement("canvas");
-    c.width = v.videoWidth || 640; c.height = v.videoHeight || 480;
-    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height); runOcr(c);
-  }, [camReady, runOcr]);
-  const onFile = (e) => { const f = e.target.files?.[0]; if (f) runOcr(f); e.target.value = ""; };
 
   const cls = classes.find((c) => c.id === selClass);
   const waLink = cls?.wali_phone ? waLinkFromPhone(cls.wali_phone, `Assalamu'alaikum, saya wali siswa kelas ${cls.name}. Ananda berhalangan hadir hari ini.`) : null;
@@ -122,21 +87,20 @@ export default function Kiosk() {
           </div>
         </div>
 
-        {/* Middle camera */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative w-[320px] h-[220px] rounded-2xl overflow-hidden border-4 border-[#D4AF37]/60 bg-black/40">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" data-testid="kiosk-camera-video" />
-            {!camReady && !camError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-white/60" /></div>}
-            {camError && <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 text-center px-3"><Camera className="w-8 h-8 mb-1" /><span className="text-xs">Kamera tidak tersedia — pakai unggah</span></div>}
-            <div className="absolute inset-5 border-2 border-dashed border-[#E9C46A]/70 rounded-lg pointer-events-none" />
-            {scanning && <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#E9C46A]" /><span className="text-xs mt-1">Membaca NISN…</span></div>}
+        {/* Middle — Scan / ketik NISN (tanpa foto) */}
+        <div className="w-full max-w-sm space-y-3">
+          <label className="text-sm font-bold text-[#E9C46A]">Atau Scan / Ketik NISN</label>
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <input ref={nisnRef} value={nisn} inputMode="numeric"
+              onChange={(e) => setNisn(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => { if (e.key === "Enter") submitCode(nisn); }}
+              placeholder="Masukkan / scan 10 digit NISN…" data-testid="kiosk-nisn-input"
+              className="w-full h-14 rounded-xl bg-white/10 border-2 border-dashed border-[#E9C46A]/40 focus:border-[#E9C46A] outline-none text-center text-lg tracking-widest pl-10 placeholder:text-white/40" />
           </div>
-          <div className="flex gap-2">
-            <button onClick={capture} disabled={!camReady || scanning} data-testid="kiosk-capture-btn" className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0F5132] hover:bg-[#0a3d25] disabled:opacity-50 font-bold"><Camera className="w-5 h-5" /> Foto NISN</button>
-            <button onClick={() => fileRef.current?.click()} disabled={scanning} data-testid="kiosk-upload-btn" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 font-semibold"><Upload className="w-5 h-5" /></button>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" data-testid="kiosk-file-input" />
-          </div>
-          <p className="text-white/50 text-xs text-center max-w-[300px]">Foto NISN diproses di perangkat; gambar tidak disimpan.</p>
+          <button onClick={() => submitCode(nisn)} disabled={nisn.length < 3} data-testid="kiosk-nisn-submit"
+            className="w-full h-12 rounded-xl bg-[#0F5132] hover:bg-[#0a3d25] disabled:opacity-50 font-bold flex items-center justify-center gap-2"><ScanLine className="w-5 h-5" /> Kirim NISN</button>
+          <p className="text-white/50 text-xs text-center">Scan barcode NISN dengan pemindai, atau ketik manual. Tanpa foto.</p>
         </div>
 
         {/* Right result */}

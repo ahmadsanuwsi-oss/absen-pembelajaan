@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { exportToXlsx, readXlsx } from "@/lib/exportXlsx";
 import { PageHeader, SearchBar, Pagination, TableWrap, EmptyRow } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { GraduationCap, Plus, Pencil, Trash2, CreditCard } from "lucide-react";
+import { GraduationCap, Plus, Pencil, Trash2, CreditCard, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const EMPTY = { nisn: "", name: "", class_id: "", gender: "L", rfid_uid: "", birth_place: "", birth_date: "", parent_name: "", parent_phone: "" };
@@ -26,6 +27,24 @@ export default function Students() {
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const fileRef = useRef(null);
+
+  const exportData = async () => {
+    try {
+      const { data } = await api.get("/students", { params: { limit: 5000 } });
+      const rows = data.items.map((s) => ({ NISN: s.nisn, Nama: s.name, Kelas: s.class_name || "", JK: s.gender, RFID: s.rfid_uid || "", "Tempat Lahir": s.birth_place || "", "Tanggal Lahir": s.birth_date || "", "Nama Ortu": s.parent_name || "", "HP Ortu": s.parent_phone || "" }));
+      exportToXlsx(rows, "Data Siswa", "data-siswa.xlsx");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const importData = async (file) => {
+    try {
+      const raw = await readXlsx(file);
+      const rows = raw.map((r) => ({ nisn: r["NISN"] ?? r.nisn, name: r["Nama"] ?? r.name, class_name: r["Kelas"] ?? r.class_name, gender: r["JK"] ?? r.gender, rfid_uid: r["RFID"] ?? r.rfid_uid, birth_place: r["Tempat Lahir"], birth_date: r["Tanggal Lahir"], parent_name: r["Nama Ortu"], parent_phone: r["HP Ortu"] }));
+      const { data } = await api.post("/students/import", { rows });
+      toast.success(`Impor selesai: ${data.created} baru, ${data.updated} diperbarui${data.errors.length ? `, ${data.errors.length} error` : ""}`);
+      load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
 
   const load = useCallback(() => {
     const params = { page, limit: 10, search };
@@ -68,7 +87,12 @@ export default function Students() {
             {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {isAdmin && <Button onClick={openNew} className="bg-[#800020] hover:bg-[#6B0D24]" data-testid="add-student-btn"><Plus className="w-4 h-4 mr-1" /> Tambah</Button>}
+        {isAdmin && <>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" data-testid="student-import-input" onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = ""; }} />
+          <Button variant="outline" onClick={exportData} data-testid="student-export-btn"><Download className="w-4 h-4 mr-1" /> Export</Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()} data-testid="student-import-btn"><Upload className="w-4 h-4 mr-1" /> Import</Button>
+          <Button onClick={openNew} className="bg-[#800020] hover:bg-[#6B0D24]" data-testid="add-student-btn"><Plus className="w-4 h-4 mr-1" /> Tambah</Button>
+        </>}
       </PageHeader>
 
       <TableWrap>

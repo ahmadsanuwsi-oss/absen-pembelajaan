@@ -47,6 +47,9 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User tidak ditemukan")
+        if user.get("role") == "guru":
+            tid = user.get("teacher_id")
+            user["is_wali"] = bool(tid and await db.classes.find_one({"wali_kelas_id": tid}, {"_id": 1}))
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token kadaluarsa")
@@ -128,6 +131,8 @@ async def login(input: LoginInput):
     token = create_access_token(user["id"], user.get("email") or "", user["role"])
     user.pop("password_hash", None)
     user.pop("_id", None)
+    if user.get("role") == "guru":
+        user["is_wali"] = bool(user.get("teacher_id") and await db.classes.find_one({"wali_kelas_id": user["teacher_id"]}, {"_id": 1}))
     return {"access_token": token, "user": user}
 
 

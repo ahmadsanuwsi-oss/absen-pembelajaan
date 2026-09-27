@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api, { formatApiError } from "@/lib/api";
+import { exportToXlsx, readXlsx } from "@/lib/exportXlsx";
 import { PageHeader, SearchBar, Pagination, TableWrap, EmptyRow } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
-import { Users, Plus, Pencil, Trash2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 const EMPTY = { name: "", nip: "", gender: "L", phone: "", is_wali_kelas: false };
@@ -20,6 +21,24 @@ export default function Teachers() {
   const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
   const [delId, setDelId] = useState(null);
+  const fileRef = useRef(null);
+
+  const exportData = async () => {
+    try {
+      const { data } = await api.get("/teachers", { params: { limit: 5000 } });
+      const rows = data.items.map((t) => ({ Nama: t.name, NIP: t.nip, JK: t.gender, "No HP": t.phone || "", "Wali Kelas": t.is_wali_kelas ? "Ya" : "" }));
+      exportToXlsx(rows, "Data Guru", "data-guru.xlsx");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
+  const importData = async (file) => {
+    try {
+      const raw = await readXlsx(file);
+      const rows = raw.map((r) => ({ name: r["Nama"] ?? r.name, nip: r["NIP"] ?? r.nip, gender: r["JK"] ?? r.gender, phone: r["No HP"] ?? r.phone, is_wali_kelas: r["Wali Kelas"] ?? r.is_wali_kelas }));
+      const { data } = await api.post("/teachers/import", { rows });
+      toast.success(`Impor selesai: ${data.created} baru, ${data.updated} diperbarui${data.errors.length ? `, ${data.errors.length} error` : ""}`);
+      load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
+  };
 
   const load = useCallback(() => { api.get("/teachers", { params: { page, limit: 10, search } }).then((r) => setData(r.data)); }, [page, search]);
   useEffect(() => { load(); }, [load]);
@@ -38,6 +57,9 @@ export default function Teachers() {
     <div>
       <PageHeader title="Data Guru" subtitle="Master data guru & tenaga pengajar" icon={Users}>
         <SearchBar value={search} onChange={setSearch} placeholder="Cari nama / NIP…" testId="teacher-search-input" />
+        <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" data-testid="teacher-import-input" onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = ""; }} />
+        <Button variant="outline" onClick={exportData} data-testid="teacher-export-btn"><Download className="w-4 h-4 mr-1" /> Export</Button>
+        <Button variant="outline" onClick={() => fileRef.current?.click()} data-testid="teacher-import-btn"><Upload className="w-4 h-4 mr-1" /> Import</Button>
         <Button onClick={() => { setForm(EMPTY); setEditId(null); setDialog(true); }} className="bg-[#800020] hover:bg-[#6B0D24]" data-testid="add-teacher-btn"><Plus className="w-4 h-4 mr-1" /> Tambah</Button>
       </PageHeader>
       <TableWrap>

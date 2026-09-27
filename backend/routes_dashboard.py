@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone, timedelta
 from db import db
-from auth import require_roles, get_current_user
+from auth import require_roles, get_current_user, accessible_class_ids
 from routes_savings import get_balance
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
@@ -48,17 +48,18 @@ async def guru_dashboard(user: dict = Depends(require_roles("guru"))):
     teacher_id = user.get("teacher_id")
     wali_class = await db.classes.find_one({"wali_kelas_id": teacher_id}, {"_id": 0}) if teacher_id else None
     my_journals = await db.journals.count_documents({"teacher_id": teacher_id}) if teacher_id else 0
-    class_students = 0
-    present = 0
-    if wali_class:
-        sids = [s["id"] for s in await db.students.find({"class_id": wali_class["id"]}, {"_id": 0, "id": 1}).to_list(500)]
-        class_students = len(sids)
-        present = await db.attendance.count_documents({"student_id": {"$in": sids}, "type": "datang", "date": date, "status": {"$in": ["hadir", "terlambat"]}})
+    acc = await accessible_class_ids(user)
+    acc_list = list(acc) if acc else []
+    sids = [s["id"] for s in await db.students.find({"class_id": {"$in": acc_list}}, {"_id": 0, "id": 1}).to_list(2000)] if acc_list else []
+    class_students = len(sids)
+    present = await db.attendance.count_documents({"student_id": {"$in": sids}, "type": "datang", "date": date, "status": {"$in": ["hadir", "terlambat"]}}) if sids else 0
+    total_assessments = await db.assessments.count_documents({"student_id": {"$in": sids}}) if sids else 0
+    total_tahfidz = await db.tahfidz.count_documents({"student_id": {"$in": sids}}) if sids else 0
     return {
         "wali_class": wali_class, "my_journals": my_journals,
         "class_students": class_students, "present_today": present,
-        "total_assessments": await db.assessments.count_documents({}),
-        "total_tahfidz": await db.tahfidz.count_documents({}),
+        "total_assessments": total_assessments,
+        "total_tahfidz": total_tahfidz,
     }
 
 

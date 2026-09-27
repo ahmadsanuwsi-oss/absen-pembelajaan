@@ -59,14 +59,18 @@ function buildGuruNav(user) {
         { label: "Cetak Rapor", to: "/rapor", icon: FileText },
       ],
     },
-    {
+  ];
+
+  // Grup Wali Kelas hanya untuk guru yang menjadi wali kelas
+  if (user?.is_wali) {
+    groups.push({
       group: "Wali Kelas",
       items: [
         { label: "Absensi Kelas", to: "/absensi", icon: CheckSquare },
         { label: "Manajemen Kelas", to: "/kelas-saya", icon: CalendarRange },
       ],
-    },
-  ];
+    });
+  }
 
   const dutyItems = [];
   if (duties.includes("tabungan")) dutyItems.push({ label: "Tabungan Siswa", to: "/tabungan", icon: Wallet });

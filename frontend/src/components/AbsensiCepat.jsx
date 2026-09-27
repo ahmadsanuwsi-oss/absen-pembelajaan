@@ -100,7 +100,7 @@ export function AbsensiCepat({ compact = false }) {
       </div>
 
       {!compact && (
-        <button onClick={() => navigate("/kiosk")} data-testid="ac-fullscreen" className="mt-4 text-xs text-slate-400 hover:text-[#800020] underline">Buka mode layar penuh (kamera)</button>
+        <button onClick={() => navigate("/kiosk")} data-testid="ac-fullscreen" className="mt-4 text-xs text-slate-400 hover:text-[#800020] underline">Buka mode layar penuh (kiosk)</button>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import re
@@ -123,6 +123,36 @@ async def delete_teacher(tid: str, user: dict = Depends(require_roles("admin")))
     return {"message": "Guru dihapus"}
 
 
+@router.post("/teachers/import")
+async def import_teachers(payload: dict = Body(...), user: dict = Depends(require_roles("admin"))):
+    rows = payload.get("rows") or []
+    created = updated = 0
+    errors = []
+    for i, r in enumerate(rows):
+        name = str(r.get("name") or "").strip()
+        nip = str(r.get("nip") or "").strip()
+        if not name or not nip:
+            errors.append(f"Baris {i + 2}: Nama/NIP kosong")
+            continue
+        wv = r.get("is_wali_kelas")
+        is_wali = wv if isinstance(wv, bool) else str(wv).strip().lower() in ("ya", "true", "1", "y")
+        doc = {
+            "name": name, "nip": nip,
+            "gender": (str(r.get("gender") or "L").strip().upper()[:1] or "L"),
+            "phone": str(r.get("phone") or "").strip() or None,
+            "is_wali_kelas": is_wali,
+        }
+        existing = await db.teachers.find_one({"nip": nip})
+        if existing:
+            await db.teachers.update_one({"nip": nip}, {"$set": doc})
+            updated += 1
+        else:
+            doc.update({"id": new_id(), "created_at": now_iso()})
+            await db.teachers.insert_one(doc)
+            created += 1
+    return {"created": created, "updated": updated, "errors": errors}
+
+
 # ---------------- Students (Siswa) ----------------
 class StudentInput(BaseModel):
     nisn: str
@@ -190,6 +220,39 @@ async def update_student(sid: str, input: StudentInput, user: dict = Depends(req
 async def delete_student(sid: str, user: dict = Depends(require_roles("admin"))):
     await db.students.delete_one({"id": sid})
     return {"message": "Siswa dihapus"}
+
+
+@router.post("/students/import")
+async def import_students(payload: dict = Body(...), user: dict = Depends(require_roles("admin"))):
+    rows = payload.get("rows") or []
+    classes = {c["name"].strip().lower(): c["id"] for c in await db.classes.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
+    created = updated = 0
+    errors = []
+    for i, r in enumerate(rows):
+        nisn = str(r.get("nisn") or "").strip()
+        name = str(r.get("name") or "").strip()
+        if not nisn or not name:
+            errors.append(f"Baris {i + 2}: NISN/Nama kosong")
+            continue
+        cid = classes.get(str(r.get("class_name") or "").strip().lower())
+        doc = {
+            "nisn": nisn, "name": name, "class_id": cid,
+            "gender": (str(r.get("gender") or "L").strip().upper()[:1] or "L"),
+            "rfid_uid": str(r.get("rfid_uid") or "").strip() or None,
+            "birth_place": str(r.get("birth_place") or "").strip() or None,
+            "birth_date": str(r.get("birth_date") or "").strip() or None,
+            "parent_name": str(r.get("parent_name") or "").strip() or None,
+            "parent_phone": str(r.get("parent_phone") or "").strip() or None,
+        }
+        existing = await db.students.find_one({"nisn": nisn})
+        if existing:
+            await db.students.update_one({"nisn": nisn}, {"$set": doc})
+            updated += 1
+        else:
+            doc.update({"id": new_id(), "photo_url": None, "created_at": now_iso()})
+            await db.students.insert_one(doc)
+            created += 1
+    return {"created": created, "updated": updated, "errors": errors}
 
 
 # ---------------- User Accounts ----------------
