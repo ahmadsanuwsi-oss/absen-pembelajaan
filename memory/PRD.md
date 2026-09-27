@@ -30,6 +30,19 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - **Kelola Akun** (/akun): field username (wajib) + email (opsional) + DutyPicker; dialog Edit akun (username/email/nama/duties, `PUT /api/users/{id}`); kolom Username & badge Tugas Tambahan.
 - Uji: iterasi 7 backend 20/20 + frontend 100% lulus. Bug index null diperbaiki tester (partialFilterExpression).
 
+### Iterasi 8 — Ceklis Kelas per Tugas + Akses Guru Terbatas per Kelas/Mapel
+- **Model akun guru diperluas**: `duty_classes` (dict {tugas: [class_id]} — ceklis kelas TERPISAH tiap tugas tambahan), `mapel_ids` (mapel yang diampu, boleh >1), `teaching_class_ids` (kelas yang diampu untuk mapel).
+- **Kelas yang bisa diakses guru** = kelas wali (classes.wali_kelas_id) ∪ teaching_class_ids ∪ semua duty_classes. Helper `accessible_class_ids()` & `duty_class_ids()` di auth.py.
+- **Kelas tidak ditugaskan disembunyikan + 403**: `/api/classes` & `/api/students` & `/api/subjects` difilter untuk guru; endelola tulis menolak 403 di luar tugas.
+  - Nilai/Jurnal/Asesmen/Leger → hanya kelas di teaching-classes + mapel di mapel_ids (`_guru_can_grade`).
+  - Tabungan (summary/detail/create) → hanya kelas duty_classes['tabungan'].
+  - Tahfidz (create/delete) → hanya kelas duty_classes['tahfidz'].
+  - Absensi manual → tartil/pramuka/ekstra_tahfidz per duty class; datang/pulang/dhuha/dzuhur per kelas akses. list/recap absensi difilter.
+  - Admin bypass semua; wali kelas otomatis dapat kelasnya.
+- **Kelola Akun UI**: komponen `GuruAssignments` (chips Mapel + Kelas diampu + toggle tugas → ceklis kelas per tugas), pada dialog Buat & Edit akun.
+- Uji: iterasi 8 backend 16/16 + frontend 100% lulus, tidak ada isu kritis. Catatan minor tester: kartu dashboard guru (Total Tahfidz) belum difilter per-scope (non-blocking).
+
+
 
 ## Implemented (2026-06)
 ### Iterasi 6 (dari mockup user: JENIS ABSEN & HALAMAN UTAMA)
