@@ -120,8 +120,20 @@ async def ensure_indexes():
         await db.users.drop_index("email_1")
     except Exception:
         pass
-    await db.users.create_index("email", unique=True, sparse=True)
-    await db.users.create_index("username", unique=True, sparse=True)
+    try:
+        await db.users.drop_index("username_1")
+    except Exception:
+        pass
+    # partialFilterExpression instead of sparse=True so that documents
+    # with an explicit null value are also excluded from uniqueness.
+    await db.users.create_index(
+        "email", unique=True,
+        partialFilterExpression={"email": {"$type": "string"}},
+    )
+    await db.users.create_index(
+        "username", unique=True,
+        partialFilterExpression={"username": {"$type": "string"}},
+    )
     await db.students.create_index("nisn")
     await db.students.create_index("rfid_uid")
     await db.students.create_index("class_id")

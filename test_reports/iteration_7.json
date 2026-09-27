@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 7: Verified username login + guru extra_duties RBAC + admin user CRUD. Backend: 20/20 pytest cases pass (admin login by username & email, guru login by email, invalid creds -> 401 with 'Username/email atau password salah', create guru with username+duties, username too-short/space rejected 400, duplicate username 400, PUT /api/users/{id} updates username & duties, RBAC gating for guru[tabungan,tartil]: savings 200 / tahfidz 403 / attendance manual tartil 200 / pramuka 403 / datang 200, admin bypasses all, change-password 403 for guru & siswa 400 for wrong-old admin, regression list students & attendance recap). Frontend: wrong creds error message shown, admin login via username 'admin' at /login works, /akun 'add-user-btn' + form-user-username/email/password/name + duty picker for tabungan/tahfidz saves new guru account which then logs in via username, guru sidebar shows only Tabungan + Program Tahfidz (no Ekstra Tartil/Pramuka) matching duties, guru sidebar does NOT show 'Ubah Password'. Cleanup of test user succeeded via DELETE /api/users/{id}.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seed.py ensure_indexes", "issue": "Original sparse=True on email/username did not exclude documents with explicit null. Second user without email caused DuplicateKeyError on email:null. Fixed by switching to partialFilterExpression {email:{$type:'string'}}. Existing index drop added for username as well so it re-creates as partial."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration7.py", "/app/test_reports/pytest/iter7.xml"],
+  "action_items": [
+    "Consider persisting the seed.py index fix (already applied) - drop old sparse email_1/username_1 and use partialFilterExpression so email:null (from create_user when email is None) does not collide.",
+    "Prior code-review carry-over from iteration 6: routes_attendance default type='kehadiran' in Pydantic models is stale."
+  ],
+  "critical_code_review_comments": [
+    "seed.ensure_indexes used sparse=True but backend inserts email:null explicitly, so sparse doesn't skip -> duplicate key on 2nd null. Now using partialFilterExpression $type:'string' (fixed).",
+    "auth.login lockout uses same locked_until on every failed attempt (upsert $set overwrites), so window can never expire while attacker keeps trying with fresh identifier variation. Acceptable but consider only setting locked_until when count crosses threshold.",
+    "routes_master.create_user does not enforce password minimum length; frontend save-user-btn only requires non-empty. Consider min length 6 to align with reset-password expectations.",
+    "routes_master.update_user allows setting email='' -> None but does not validate email format; low priority."
+  ],
+  "updated_files": [
+    "/app/backend/seed.py (partialFilterExpression on email + username indexes)",
+    "/app/backend/tests/test_iteration7.py (new)"
+  ],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100%"},
+  "test_credentials": "admin: username 'admin' / 'admin123' (or email ahmadsanuwsi@gmail.com). guru: guru@mijannah.sch.id / guru123. siswa: siswa@mijannah.sch.id / siswa123.",
+  "seed_data_creation": "Test-only accounts created during pytest are cleaned up in teardown_class via DELETE /api/users/{id}. Playwright test also deleted its created user.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration7.py covers username login, RBAC duty gating (savings/tahfidz/attendance manual), change-password gating, admin user CRUD (create/update/duplicate/validation). Payload field names to remember: /api/savings uses 'kind' (setoran/penarikan) not 'type'; /api/tahfidz uses ayat_from/ayat_to not ayat_dari/ayat_sampai. Seed indexes now use partialFilterExpression - startup will drop old sparse indexes and recreate.",
+  "rca of the issue": "Duplicate key on E11000 email:null for 2nd user without email: MongoDB sparse indexes only skip documents where the indexed field is *missing*, not where the value is explicitly null. Backend inserts email:None (JSON null). Fix: partialFilterExpression restricting the unique constraint to documents where email is a string. Same reasoning applied preventively to username."
+}

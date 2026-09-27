@@ -20,6 +20,17 @@ Sistem manajemen sekolah berbasis web untuk MI Miftahul Jannah (Madrasah Ibtidai
 - Siswa/Orang tua: portal nilai/absensi/tahfidz/tabungan.
 - Kiosk: absensi cepat publik (tanpa login).
 
+## Implemented (2026-09)
+### Iterasi 7 — Login via Username + Tugas Tambahan Guru
+- **Login via username**: field login menerima username ATAU email (`POST /api/auth/login {identifier,password}`). Username unik, `^[a-z0-9._]{3,30}$`, disimpan lowercase.
+- **Email opsional** untuk guru/siswa; index unique pakai `partialFilterExpression {$type:'string'}` agar banyak akun tanpa email (null) tidak bentrok. Admin owner username `admin`.
+- **Guru/siswa tidak bisa reset password sendiri**: endpoint `/api/auth/change-password` khusus admin; menu "Ubah Password" hanya tampil untuk admin.
+- **Tugas Tambahan guru (`extra_duties`)**: tabungan | tahfidz | tartil | pramuka. Gating backend via `require_duty()`: savings(create)→tabungan, tahfidz(create/delete)→tahfidz, attendance manual type tartil→tartil / pramuka→pramuka / ekstra_tahfidz→tahfidz. Admin bypass semua. Type datang/pulang/dhuha/dzuhur terbuka untuk semua guru.
+- **Sidebar guru dinamis** (`getNav(user)`): menu Tabungan/Tahfidz/Ekstra Tartil(/ekstra/tartil)/Ekstra Pramuka(/ekstra/pramuka) hanya muncul sesuai duty. Route /ekstra/* render Attendance dengan `lockedType`.
+- **Kelola Akun** (/akun): field username (wajib) + email (opsional) + DutyPicker; dialog Edit akun (username/email/nama/duties, `PUT /api/users/{id}`); kolom Username & badge Tugas Tambahan.
+- Uji: iterasi 7 backend 20/20 + frontend 100% lulus. Bug index null diperbaiki tester (partialFilterExpression).
+
+
 ## Implemented (2026-06)
 ### Iterasi 6 (dari mockup user: JENIS ABSEN & HALAMAN UTAMA)
 - **7 Jenis Absen**: datang, pulang, dhuha, dzuhur, pramuka, tartil, ekstra_tahfidz (label Indonesia). Migrasi data lama kehadiran→datang, ekstra→pramuka. Terlambat hanya berlaku untuk "datang".
