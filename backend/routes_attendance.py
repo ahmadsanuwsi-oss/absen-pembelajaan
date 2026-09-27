@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api", tags=["attendance"])
 
 JAKARTA_OFFSET = timedelta(hours=7)
 ATTENDANCE_TYPES = ["datang", "pulang", "dhuha", "dzuhur", "pramuka", "tartil", "ekstra_tahfidz"]
+DUTY_FOR_TYPE = {"tartil": "tartil", "pramuka": "pramuka", "ekstra_tahfidz": "tahfidz"}
 TYPE_LABELS = {
     "datang": "Kehadiran (Datang)", "pulang": "Kehadiran (Pulang)",
     "dhuha": "Sholat Dhuha", "dzuhur": "Sholat Dzuhur",
@@ -97,6 +98,9 @@ async def manual_attendance(input: ManualAttendanceInput, user: dict = Depends(r
         raise HTTPException(400, "Status absensi tidak valid")
     if input.type not in ATTENDANCE_TYPES:
         raise HTTPException(400, "Jenis absensi tidak valid")
+    req_duty = DUTY_FOR_TYPE.get(input.type)
+    if req_duty and user.get("role") == "guru" and req_duty not in (user.get("extra_duties") or []):
+        raise HTTPException(403, "Tidak memiliki tugas tambahan untuk jenis absensi ini")
     date = input.date or today_str()
     existing = await db.attendance.find_one({"student_id": input.student_id, "type": input.type, "date": date})
     payload = {"status": input.status, "time": local_now().strftime("%H:%M:%S"), "source": "manual", "type": input.type, "date": date}

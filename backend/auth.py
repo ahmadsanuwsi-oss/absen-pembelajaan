@@ -3,7 +3,7 @@ import jwt
 import bcrypt
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from db import db, now_iso, new_id
 
 JWT_ALGORITHM = "HS256"
@@ -62,11 +62,22 @@ def require_roles(*roles):
     return checker
 
 
+def require_duty(*duties):
+    """Admin lolos semua. Guru harus punya minimal satu tugas tambahan yang cocok."""
+    async def checker(user: dict = Depends(get_current_user)) -> dict:
+        if user.get("role") == "admin":
+            return user
+        if user.get("role") == "guru" and set(duties) & set(user.get("extra_duties") or []):
+            return user
+        raise HTTPException(status_code=403, detail="Tidak memiliki tugas tambahan untuk fitur ini")
+    return checker
+
+
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 class LoginInput(BaseModel):
-    email: EmailStr
+    identifier: str
     password: str
 
 
@@ -77,23 +88,22 @@ class ChangePasswordInput(BaseModel):
 
 @router.post("/login")
 async def login(input: LoginInput):
-    email = input.email.lower().strip()
-    ident = email
+    ident = input.identifier.lower().strip()
     attempt = await db.login_attempts.find_one({"identifier": ident})
     if attempt and attempt.get("count", 0) >= 5:
         locked_until = attempt.get("locked_until")
         if locked_until and datetime.fromisoformat(locked_until) > datetime.now(timezone.utc):
             raise HTTPException(status_code=429, detail="Terlalu banyak percobaan. Coba lagi dalam 15 menit.")
-    user = await db.users.find_one({"email": email})
+    user = await db.users.find_one({"$or": [{"username": ident}, {"email": ident}]})
     if not user or not verify_password(input.password, user["password_hash"]):
         await db.login_attempts.update_one(
             {"identifier": ident},
             {"$inc": {"count": 1}, "$set": {"locked_until": (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()}},
             upsert=True,
         )
-        raise HTTPException(status_code=401, detail="Email atau password salah")
+        raise HTTPException(status_code=401, detail="Username/email atau password salah")
     await db.login_attempts.delete_one({"identifier": ident})
-    token = create_access_token(user["id"], user["email"], user["role"])
+    token = create_access_token(user["id"], user.get("email") or "", user["role"])
     user.pop("password_hash", None)
     user.pop("_id", None)
     return {"access_token": token, "user": user}
@@ -110,7 +120,7 @@ async def logout(user: dict = Depends(get_current_user)):
 
 
 @router.post("/change-password")
-async def change_password(input: ChangePasswordInput, user: dict = Depends(get_current_user)):
+async def change_password(input: ChangePasswordInput, user: dict = Depends(require_roles("admin"))):
     full = await db.users.find_one({"id": user["id"]})
     if not verify_password(input.old_password, full["password_hash"]):
         raise HTTPException(status_code=400, detail="Password lama salah")
@@ -124,9 +134,15 @@ async def seed_admin():
     existing = await db.users.find_one({"email": admin_email})
     if existing is None:
         await db.users.insert_one({
-            "id": new_id(), "email": admin_email, "password_hash": hash_password(admin_password),
+            "id": new_id(), "username": "admin", "email": admin_email, "password_hash": hash_password(admin_password),
             "name": "Administrator MI", "role": "admin", "student_id": None, "teacher_id": None,
-            "created_at": now_iso(),
+            "extra_duties": [], "created_at": now_iso(),
         })
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
+    else:
+        upd = {}
+        if not verify_password(admin_password, existing["password_hash"]):
+            upd["password_hash"] = hash_password(admin_password)
+        if not existing.get("username"):
+            upd["username"] = "admin"
+        if upd:
+            await db.users.update_one({"email": admin_email}, {"$set": upd})

@@ -59,6 +59,8 @@ function App() {
               <Route path="/tahfidz" element={<Page roles={["admin", "guru"]}><Tahfidz /></Page>} />
               <Route path="/tabungan" element={<Page roles={["admin", "guru"]}><Savings /></Page>} />
               <Route path="/kelas-saya" element={<Page roles={["guru"]}><ClassManagement /></Page>} />
+              <Route path="/ekstra/tartil" element={<Page roles={["admin", "guru"]}><Attendance lockedType="tartil" /></Page>} />
+              <Route path="/ekstra/pramuka" element={<Page roles={["admin", "guru"]}><Attendance lockedType="pramuka" /></Page>} />
 
               <Route path="/portal/nilai" element={<Page roles={["siswa"]}><Portal mode="nilai" /></Page>} />
               <Route path="/portal/absensi" element={<Page roles={["siswa"]}><Portal mode="absensi" /></Page>} />

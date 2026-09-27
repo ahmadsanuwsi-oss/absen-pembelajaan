@@ -15,11 +15,12 @@ const STATUS_BADGE = {
 };
 const MANUAL_STATUS = ["hadir", "terlambat", "izin", "sakit", "alpa"];
 
-export default function Attendance() {
-  const [tab, setTab] = useState("harian");
+export default function Attendance({ lockedType }) {
+  const [tab, setTab] = useState(lockedType ? "manual" : "harian");
   const [classes, setClasses] = useState([]);
   const [classFilter, setClassFilter] = useState("");
-  const [type, setType] = useState("datang");
+  const [type, setType] = useState(lockedType || "datang");
+  const lockedLabel = lockedType ? TYPES.find((t) => t.v === lockedType)?.l : null;
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [daily, setDaily] = useState({ items: [] });
@@ -78,15 +79,17 @@ export default function Attendance() {
 
   return (
     <div>
-      <PageHeader title="Absensi & Rekapitulasi" subtitle="Data presensi dari kiosk & input manual" icon={CheckSquare} overline="Akademik">
+      <PageHeader title={lockedLabel || "Absensi & Rekapitulasi"} subtitle={lockedType ? "Catat presensi kegiatan ekstrakurikuler" : "Data presensi dari kiosk & input manual"} icon={CheckSquare} overline="Akademik">
         <Select value={classFilter || "all"} onValueChange={(v) => setClassFilter(v === "all" ? "" : v)}>
           <SelectTrigger className="w-32 bg-white" data-testid="att-class-filter"><SelectValue placeholder="Kelas" /></SelectTrigger>
           <SelectContent><SelectItem value="all">Semua Kelas</SelectItem>{classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
         </Select>
+        {!lockedType && (
         <Select value={type} onValueChange={setType}>
           <SelectTrigger className="w-40 bg-white" data-testid="att-type-filter"><SelectValue /></SelectTrigger>
           <SelectContent>{TYPES.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
         </Select>
+        )}
       </PageHeader>
 
       <div className="flex gap-2 mb-4 flex-wrap items-center">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useSchool } from "@/context/SchoolContext";
-import { NAV, ROLE_LABELS } from "@/config/nav";
+import { getNav, ROLE_LABELS } from "@/config/nav";
 import { Logo } from "@/components/Logo";
 import { ChevronDown, LogOut, Menu, X, ScanLine, KeyRound } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -11,7 +11,7 @@ import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 function SidebarContent({ onNavigate }) {
   const { user } = useAuth();
   const { school } = useSchool();
-  const groups = NAV[user.role] || [];
+  const groups = getNav(user);
   const [open, setOpen] = useState(() => groups.map((_, i) => i));
   const toggle = (i) => setOpen((o) => (o.includes(i) ? o.filter((x) => x !== i) : [...o, i]));
 
@@ -95,9 +95,11 @@ export function Layout({ children }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+              <DropdownMenuLabel>{user.username || user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setPwOpen(true)} data-testid="change-password-item"><KeyRound className="w-4 h-4 mr-2" /> Ubah Password</DropdownMenuItem>
+              {user.role === "admin" && (
+                <DropdownMenuItem onClick={() => setPwOpen(true)} data-testid="change-password-item"><KeyRound className="w-4 h-4 mr-2" /> Ubah Password</DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={logout} data-testid="logout-btn" className="text-rose-600 focus:text-rose-600"><LogOut className="w-4 h-4 mr-2" /> Keluar</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

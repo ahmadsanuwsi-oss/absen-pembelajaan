@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from db import db, now_iso, new_id, paginate
-from auth import require_roles
+from auth import require_roles, require_duty
 
 router = APIRouter(prefix="/api", tags=["savings"])
 
@@ -46,7 +46,7 @@ async def savings_detail(student_id: str, user: dict = Depends(require_roles("ad
 
 
 @router.post("/savings")
-async def create_savings_txn(input: SavingsTxnInput, user: dict = Depends(require_roles("admin", "guru"))):
+async def create_savings_txn(input: SavingsTxnInput, user: dict = Depends(require_duty("tabungan"))):
     if input.kind not in ("setoran", "penarikan"):
         raise HTTPException(400, "Jenis transaksi tidak valid")
     if input.amount <= 0:

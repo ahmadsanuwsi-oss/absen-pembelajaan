@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from db import db, now_iso, new_id, paginate
-from auth import require_roles
+from auth import require_roles, require_duty
 
 router = APIRouter(prefix="/api", tags=["teacher"])
 
@@ -207,7 +207,7 @@ async def list_tahfidz(student_id: str = "", class_id: str = "", user: dict = De
 
 
 @router.post("/tahfidz")
-async def create_tahfidz(input: TahfidzInput, user: dict = Depends(require_roles("admin", "guru"))):
+async def create_tahfidz(input: TahfidzInput, user: dict = Depends(require_duty("tahfidz"))):
     doc = {"id": new_id(), **input.model_dump(), "date": input.date or now_iso()[:10], "created_at": now_iso()}
     await db.tahfidz.insert_one(doc)
     doc.pop("_id", None)
@@ -215,7 +215,7 @@ async def create_tahfidz(input: TahfidzInput, user: dict = Depends(require_roles
 
 
 @router.delete("/tahfidz/{tid}")
-async def delete_tahfidz(tid: str, user: dict = Depends(require_roles("admin", "guru"))):
+async def delete_tahfidz(tid: str, user: dict = Depends(require_duty("tahfidz"))):
     await db.tahfidz.delete_one({"id": tid})
     return {"message": "Catatan tahfidz dihapus"}
 

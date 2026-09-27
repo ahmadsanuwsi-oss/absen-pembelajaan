@@ -1,8 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel
+from typing import Optional, List
+import re
 from db import db, now_iso, new_id, paginate
 from auth import require_roles, hash_password
+
+VALID_DUTIES = ("tabungan", "tahfidz", "tartil", "pramuka")
+USERNAME_RE = re.compile(r"^[a-z0-9._]{3,30}$")
 
 router = APIRouter(prefix="/api", tags=["master"])
 
@@ -176,12 +180,21 @@ async def delete_student(sid: str, user: dict = Depends(require_roles("admin")))
 
 # ---------------- User Accounts ----------------
 class UserAccountInput(BaseModel):
-    email: EmailStr
+    username: str
     password: str
     name: str
-    role: str  # guru | siswa
+    role: str  # guru | siswa | admin
+    email: Optional[str] = None
     student_id: Optional[str] = None
     teacher_id: Optional[str] = None
+    extra_duties: Optional[List[str]] = None
+
+
+class UserUpdateInput(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    extra_duties: Optional[List[str]] = None
 
 
 class ResetPasswordInput(BaseModel):
@@ -194,26 +207,59 @@ async def list_users(page: int = 1, limit: int = 10, search: str = "", role: str
     if role:
         q["role"] = role
     if search:
-        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}}]
+        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}}, {"username": {"$regex": search, "$options": "i"}}]
     return await paginate(db.users, q, page, limit, "created_at", -1, {"_id": 0, "password_hash": 0})
 
 
 @router.post("/users")
 async def create_user(input: UserAccountInput, user: dict = Depends(require_roles("admin"))):
-    email = input.email.lower().strip()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(400, "Email sudah digunakan")
+    username = (input.username or "").lower().strip()
+    if not USERNAME_RE.match(username):
+        raise HTTPException(400, "Username minimal 3 karakter, hanya huruf/angka/titik/underscore, tanpa spasi")
+    if await db.users.find_one({"username": username}):
+        raise HTTPException(400, "Username sudah digunakan")
     if input.role not in ("guru", "siswa", "admin"):
         raise HTTPException(400, "Role tidak valid")
+    email = (input.email or "").lower().strip() or None
+    if email and await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email sudah digunakan")
+    duties = [d for d in (input.extra_duties or []) if d in VALID_DUTIES] if input.role == "guru" else []
     doc = {
-        "id": new_id(), "email": email, "password_hash": hash_password(input.password),
+        "id": new_id(), "username": username, "email": email, "password_hash": hash_password(input.password),
         "name": input.name, "role": input.role, "student_id": input.student_id,
-        "teacher_id": input.teacher_id, "created_at": now_iso(),
+        "teacher_id": input.teacher_id, "extra_duties": duties, "created_at": now_iso(),
     }
     await db.users.insert_one(doc)
     doc.pop("password_hash", None)
     doc.pop("_id", None)
     return doc
+
+
+@router.put("/users/{uid}")
+async def update_user(uid: str, input: UserUpdateInput, user: dict = Depends(require_roles("admin"))):
+    target = await db.users.find_one({"id": uid})
+    if not target:
+        raise HTTPException(404, "User tidak ditemukan")
+    upd = {}
+    if input.username is not None:
+        username = input.username.lower().strip()
+        if not USERNAME_RE.match(username):
+            raise HTTPException(400, "Username minimal 3 karakter, hanya huruf/angka/titik/underscore, tanpa spasi")
+        if await db.users.find_one({"username": username, "id": {"$ne": uid}}):
+            raise HTTPException(400, "Username sudah digunakan")
+        upd["username"] = username
+    if input.email is not None:
+        email = input.email.lower().strip() or None
+        if email and await db.users.find_one({"email": email, "id": {"$ne": uid}}):
+            raise HTTPException(400, "Email sudah digunakan")
+        upd["email"] = email
+    if input.name is not None and input.name.strip():
+        upd["name"] = input.name.strip()
+    if input.extra_duties is not None:
+        upd["extra_duties"] = [d for d in input.extra_duties if d in VALID_DUTIES] if target.get("role") == "guru" else []
+    if upd:
+        await db.users.update_one({"id": uid}, {"$set": upd})
+    return await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
 
 
 @router.put("/users/{uid}/reset-password")

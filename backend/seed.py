@@ -116,7 +116,12 @@ async def ensure_demo_accounts():
 
 
 async def ensure_indexes():
-    await db.users.create_index("email", unique=True)
+    try:
+        await db.users.drop_index("email_1")
+    except Exception:
+        pass
+    await db.users.create_index("email", unique=True, sparse=True)
+    await db.users.create_index("username", unique=True, sparse=True)
     await db.students.create_index("nisn")
     await db.students.create_index("rfid_uid")
     await db.students.create_index("class_id")

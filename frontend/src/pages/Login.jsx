@@ -14,7 +14,7 @@ export default function Login() {
   const { login, user } = useAuth();
   const { school } = useSchool();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -25,7 +25,7 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError(""); setLoading(true);
-    try { await login(email.trim(), password); navigate("/dashboard"); }
+    try { await login(identifier.trim(), password); navigate("/dashboard"); }
     catch (e) { setError(formatApiError(e.response?.data?.detail) || e.message); }
     finally { setLoading(false); }
   };
@@ -51,7 +51,7 @@ export default function Login() {
               <Label htmlFor="email">Username</Label>
               <div className="relative mt-1.5">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input id="email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Masukkan username / email" required data-testid="login-email-input" className="pl-9 h-11" />
+                <Input id="email" type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Masukkan username" required data-testid="login-email-input" className="pl-9 h-11" />
               </div>
             </div>
             <div>
