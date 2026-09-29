@@ -1,0 +1,375 @@
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from pydantic import BaseModel
+from typing import Optional, List, Dict
+import re
+from db import db, now_iso, new_id, paginate
+from auth import require_roles, hash_password, accessible_class_ids
+
+VALID_DUTIES = ("tabungan", "tahfidz", "tartil", "pramuka")
+USERNAME_RE = re.compile(r"^[a-z0-9._]{3,30}$")
+
+router = APIRouter(prefix="/api", tags=["master"])
+
+# ---------------- Classes (Kelas) ----------------
+class ClassInput(BaseModel):
+    name: str
+    level: int
+    wali_kelas_id: Optional[str] = None
+    academic_year: str = "2025/2026"
+
+
+@router.get("/classes")
+async def list_classes(user: dict = Depends(require_roles())):
+    items = await db.classes.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    acc = await accessible_class_ids(user)
+    if acc is not None:
+        items = [c for c in items if c["id"] in acc]
+    for c in items:
+        c["student_count"] = await db.students.count_documents({"class_id": c["id"]})
+        if c.get("wali_kelas_id"):
+            t = await db.teachers.find_one({"id": c["wali_kelas_id"]}, {"_id": 0, "name": 1})
+            c["wali_kelas_name"] = t["name"] if t else None
+    return items
+
+
+@router.post("/classes")
+async def create_class(input: ClassInput, user: dict = Depends(require_roles("admin"))):
+    doc = {"id": new_id(), **input.model_dump(), "created_at": now_iso()}
+    await db.classes.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/classes/{class_id}")
+async def update_class(class_id: str, input: ClassInput, user: dict = Depends(require_roles("admin"))):
+    res = await db.classes.update_one({"id": class_id}, {"$set": input.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Kelas tidak ditemukan")
+    return await db.classes.find_one({"id": class_id}, {"_id": 0})
+
+
+@router.delete("/classes/{class_id}")
+async def delete_class(class_id: str, user: dict = Depends(require_roles("admin"))):
+    await db.classes.delete_one({"id": class_id})
+    return {"message": "Kelas dihapus"}
+
+
+# ---------------- Subjects (Mapel) ----------------
+class SubjectInput(BaseModel):
+    name: str
+    code: str
+
+
+@router.get("/subjects")
+async def list_subjects(user: dict = Depends(require_roles())):
+    items = await db.subjects.find({}, {"_id": 0}).sort("name", 1).to_list(200)
+    if user.get("role") == "guru":
+        mp = set(user.get("mapel_ids") or [])
+        if mp:
+            items = [s for s in items if s["id"] in mp]
+    return items
+
+
+@router.post("/subjects")
+async def create_subject(input: SubjectInput, user: dict = Depends(require_roles("admin"))):
+    doc = {"id": new_id(), **input.model_dump(), "created_at": now_iso()}
+    await db.subjects.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.delete("/subjects/{sid}")
+async def delete_subject(sid: str, user: dict = Depends(require_roles("admin"))):
+    await db.subjects.delete_one({"id": sid})
+    return {"message": "Mapel dihapus"}
+
+
+# ---------------- Teachers (Guru) ----------------
+class TeacherInput(BaseModel):
+    name: str
+    nip: str
+    gender: str = "L"
+    phone: Optional[str] = None
+    is_wali_kelas: bool = False
+
+
+@router.get("/teachers")
+async def list_teachers(page: int = 1, limit: int = 10, search: str = "", user: dict = Depends(require_roles("admin", "guru"))):
+    q = {}
+    if search:
+        q = {"$or": [{"name": {"$regex": search, "$options": "i"}}, {"nip": {"$regex": search, "$options": "i"}}]}
+    return await paginate(db.teachers, q, page, limit, "name", 1)
+
+
+@router.post("/teachers")
+async def create_teacher(input: TeacherInput, user: dict = Depends(require_roles("admin"))):
+    doc = {"id": new_id(), **input.model_dump(), "created_at": now_iso()}
+    await db.teachers.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/teachers/{tid}")
+async def update_teacher(tid: str, input: TeacherInput, user: dict = Depends(require_roles("admin"))):
+    res = await db.teachers.update_one({"id": tid}, {"$set": input.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Guru tidak ditemukan")
+    return await db.teachers.find_one({"id": tid}, {"_id": 0})
+
+
+@router.delete("/teachers/{tid}")
+async def delete_teacher(tid: str, user: dict = Depends(require_roles("admin"))):
+    await db.teachers.delete_one({"id": tid})
+    return {"message": "Guru dihapus"}
+
+
+@router.post("/teachers/import")
+async def import_teachers(payload: dict = Body(...), user: dict = Depends(require_roles("admin"))):
+    rows = payload.get("rows") or []
+    created = updated = 0
+    errors = []
+    for i, r in enumerate(rows):
+        name = str(r.get("name") or "").strip()
+        nip = str(r.get("nip") or "").strip()
+        if not name or not nip:
+            errors.append(f"Baris {i + 2}: Nama/NIP kosong")
+            continue
+        wv = r.get("is_wali_kelas")
+        is_wali = wv if isinstance(wv, bool) else str(wv).strip().lower() in ("ya", "true", "1", "y")
+        doc = {
+            "name": name, "nip": nip,
+            "gender": (str(r.get("gender") or "L").strip().upper()[:1] or "L"),
+            "phone": str(r.get("phone") or "").strip() or None,
+            "is_wali_kelas": is_wali,
+        }
+        existing = await db.teachers.find_one({"nip": nip})
+        if existing:
+            await db.teachers.update_one({"nip": nip}, {"$set": doc})
+            updated += 1
+        else:
+            doc.update({"id": new_id(), "created_at": now_iso()})
+            await db.teachers.insert_one(doc)
+            created += 1
+    return {"created": created, "updated": updated, "errors": errors}
+
+
+# ---------------- Students (Siswa) ----------------
+class StudentInput(BaseModel):
+    nisn: str
+    name: str
+    class_id: Optional[str] = None
+    gender: str = "L"
+    rfid_uid: Optional[str] = None
+    birth_place: Optional[str] = None
+    birth_date: Optional[str] = None
+    parent_name: Optional[str] = None
+    parent_phone: Optional[str] = None
+    photo_url: Optional[str] = None
+
+
+@router.get("/students")
+async def list_students(page: int = 1, limit: int = 10, search: str = "", class_id: str = "", user: dict = Depends(require_roles("admin", "guru"))):
+    q = {}
+    if class_id:
+        q["class_id"] = class_id
+    if search:
+        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"nisn": {"$regex": search, "$options": "i"}}]
+    acc = await accessible_class_ids(user)
+    if acc is not None:
+        if class_id and class_id not in acc:
+            raise HTTPException(403, "Kelas ini tidak termasuk tugas Anda")
+        if not class_id:
+            q["class_id"] = {"$in": list(acc)}
+    result = await paginate(db.students, q, page, limit, "name", 1)
+    classes = {c["id"]: c["name"] for c in await db.classes.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
+    for s in result["items"]:
+        s["class_name"] = classes.get(s.get("class_id"), "-")
+    return result
+
+
+@router.get("/students/{sid}")
+async def get_student(sid: str, user: dict = Depends(require_roles())):
+    s = await db.students.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Siswa tidak ditemukan")
+    if s.get("class_id"):
+        c = await db.classes.find_one({"id": s["class_id"]}, {"_id": 0, "name": 1})
+        s["class_name"] = c["name"] if c else "-"
+    return s
+
+
+@router.post("/students")
+async def create_student(input: StudentInput, user: dict = Depends(require_roles("admin"))):
+    if await db.students.find_one({"nisn": input.nisn}):
+        raise HTTPException(400, "NISN sudah terdaftar")
+    doc = {"id": new_id(), **input.model_dump(), "created_at": now_iso()}
+    await db.students.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/students/{sid}")
+async def update_student(sid: str, input: StudentInput, user: dict = Depends(require_roles("admin"))):
+    res = await db.students.update_one({"id": sid}, {"$set": input.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Siswa tidak ditemukan")
+    return await db.students.find_one({"id": sid}, {"_id": 0})
+
+
+@router.delete("/students/{sid}")
+async def delete_student(sid: str, user: dict = Depends(require_roles("admin"))):
+    await db.students.delete_one({"id": sid})
+    return {"message": "Siswa dihapus"}
+
+
+@router.post("/students/import")
+async def import_students(payload: dict = Body(...), user: dict = Depends(require_roles("admin"))):
+    rows = payload.get("rows") or []
+    classes = {c["name"].strip().lower(): c["id"] for c in await db.classes.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
+    created = updated = 0
+    errors = []
+    for i, r in enumerate(rows):
+        nisn = str(r.get("nisn") or "").strip()
+        name = str(r.get("name") or "").strip()
+        if not nisn or not name:
+            errors.append(f"Baris {i + 2}: NISN/Nama kosong")
+            continue
+        cid = classes.get(str(r.get("class_name") or "").strip().lower())
+        doc = {
+            "nisn": nisn, "name": name, "class_id": cid,
+            "gender": (str(r.get("gender") or "L").strip().upper()[:1] or "L"),
+            "rfid_uid": str(r.get("rfid_uid") or "").strip() or None,
+            "birth_place": str(r.get("birth_place") or "").strip() or None,
+            "birth_date": str(r.get("birth_date") or "").strip() or None,
+            "parent_name": str(r.get("parent_name") or "").strip() or None,
+            "parent_phone": str(r.get("parent_phone") or "").strip() or None,
+        }
+        existing = await db.students.find_one({"nisn": nisn})
+        if existing:
+            await db.students.update_one({"nisn": nisn}, {"$set": doc})
+            updated += 1
+        else:
+            doc.update({"id": new_id(), "photo_url": None, "created_at": now_iso()})
+            await db.students.insert_one(doc)
+            created += 1
+    return {"created": created, "updated": updated, "errors": errors}
+
+
+# ---------------- User Accounts ----------------
+class UserAccountInput(BaseModel):
+    username: str
+    password: str
+    name: str
+    role: str  # guru | siswa | admin
+    email: Optional[str] = None
+    student_id: Optional[str] = None
+    teacher_id: Optional[str] = None
+    extra_duties: Optional[List[str]] = None
+    duty_classes: Optional[Dict[str, List[str]]] = None
+    mapel_ids: Optional[List[str]] = None
+    teaching_class_ids: Optional[List[str]] = None
+
+
+class UserUpdateInput(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    extra_duties: Optional[List[str]] = None
+    duty_classes: Optional[Dict[str, List[str]]] = None
+    mapel_ids: Optional[List[str]] = None
+    teaching_class_ids: Optional[List[str]] = None
+
+
+class ResetPasswordInput(BaseModel):
+    new_password: str
+
+
+@router.get("/users")
+async def list_users(page: int = 1, limit: int = 10, search: str = "", role: str = "", user: dict = Depends(require_roles("admin"))):
+    q = {}
+    if role:
+        q["role"] = role
+    if search:
+        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"email": {"$regex": search, "$options": "i"}}, {"username": {"$regex": search, "$options": "i"}}]
+    return await paginate(db.users, q, page, limit, "created_at", -1, {"_id": 0, "password_hash": 0})
+
+
+@router.post("/users")
+async def create_user(input: UserAccountInput, user: dict = Depends(require_roles("admin"))):
+    username = (input.username or "").lower().strip()
+    if not USERNAME_RE.match(username):
+        raise HTTPException(400, "Username minimal 3 karakter, hanya huruf/angka/titik/underscore, tanpa spasi")
+    if await db.users.find_one({"username": username}):
+        raise HTTPException(400, "Username sudah digunakan")
+    if input.role not in ("guru", "siswa", "admin"):
+        raise HTTPException(400, "Role tidak valid")
+    email = (input.email or "").lower().strip() or None
+    if email and await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email sudah digunakan")
+    is_guru = input.role == "guru"
+    duties = [d for d in (input.extra_duties or []) if d in VALID_DUTIES] if is_guru else []
+    duty_classes = {d: list(cls or []) for d, cls in (input.duty_classes or {}).items() if d in VALID_DUTIES} if is_guru else {}
+    mapel_ids = list(input.mapel_ids or []) if is_guru else []
+    teaching_class_ids = list(input.teaching_class_ids or []) if is_guru else []
+    doc = {
+        "id": new_id(), "username": username, "email": email, "password_hash": hash_password(input.password),
+        "name": input.name, "role": input.role, "student_id": input.student_id,
+        "teacher_id": input.teacher_id, "extra_duties": duties, "duty_classes": duty_classes,
+        "mapel_ids": mapel_ids, "teaching_class_ids": teaching_class_ids, "created_at": now_iso(),
+    }
+    await db.users.insert_one(doc)
+    doc.pop("password_hash", None)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/users/{uid}")
+async def update_user(uid: str, input: UserUpdateInput, user: dict = Depends(require_roles("admin"))):
+    target = await db.users.find_one({"id": uid})
+    if not target:
+        raise HTTPException(404, "User tidak ditemukan")
+    upd = {}
+    if input.username is not None:
+        username = input.username.lower().strip()
+        if not USERNAME_RE.match(username):
+            raise HTTPException(400, "Username minimal 3 karakter, hanya huruf/angka/titik/underscore, tanpa spasi")
+        if await db.users.find_one({"username": username, "id": {"$ne": uid}}):
+            raise HTTPException(400, "Username sudah digunakan")
+        upd["username"] = username
+    if input.email is not None:
+        email = input.email.lower().strip() or None
+        if email and await db.users.find_one({"email": email, "id": {"$ne": uid}}):
+            raise HTTPException(400, "Email sudah digunakan")
+        upd["email"] = email
+    if input.name is not None and input.name.strip():
+        upd["name"] = input.name.strip()
+    if input.extra_duties is not None:
+        upd["extra_duties"] = [d for d in input.extra_duties if d in VALID_DUTIES] if target.get("role") == "guru" else []
+    if input.duty_classes is not None:
+        upd["duty_classes"] = {d: list(cls or []) for d, cls in input.duty_classes.items() if d in VALID_DUTIES} if target.get("role") == "guru" else {}
+    if input.mapel_ids is not None:
+        upd["mapel_ids"] = list(input.mapel_ids) if target.get("role") == "guru" else []
+    if input.teaching_class_ids is not None:
+        upd["teaching_class_ids"] = list(input.teaching_class_ids) if target.get("role") == "guru" else []
+    if upd:
+        await db.users.update_one({"id": uid}, {"$set": upd})
+    return await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+
+
+@router.put("/users/{uid}/reset-password")
+async def admin_reset_password(uid: str, input: ResetPasswordInput, user: dict = Depends(require_roles("admin"))):
+    res = await db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_password(input.new_password)}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
+    return {"message": "Password berhasil direset"}
+
+
+@router.delete("/users/{uid}")
+async def delete_user(uid: str, user: dict = Depends(require_roles("admin"))):
+    target = await db.users.find_one({"id": uid})
+    if target and target.get("role") == "admin":
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(400, "Tidak bisa menghapus admin terakhir")
+    await db.users.delete_one({"id": uid})
+    return {"message": "User dihapus"}

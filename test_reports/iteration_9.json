@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration 9 testing complete. All 4 new features verified: (1) Guru dashboard scoping — /api/dashboard/guru returns class_students/total_assessments/total_tahfidz scoped to accessible classes (2 siswa, 4 tahfidz for wali 1A) vs admin school-wide counts. (2) is_wali flag on both /auth/login and /auth/me responses (true for demo guru, false for non-wali guru). (3) Sidebar 'Wali Kelas' group correctly hidden for non-wali guru, shown for wali guru (verified visually + DOM). (4) Kiosk NISN scan flow — kiosk-nisn-input + kiosk-nisn-submit present, no camera/video/Foto NISN, non-numeric chars stripped, submits on click and on Enter, result shows student name/class. Students & Teachers import upsert by NISN/NIP works (create-then-update flow, gender first-letter uppercased 'Perempuan'->P, class_name '1A' -> class_id mapping, is_wali_kelas 'Ya'->true). Export buttons trigger .xlsx download (data-siswa.xlsx / data-guru.xlsx). Regression: username login (admin/admin123) OK, guru sees only accessible classes in /api/classes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration9.py", "/app/test_reports/pytest/iter9.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/pytest.ini forces -n 2 --dist loadscope; test writers must avoid -p no:xdist and use -n 0 for serial runs.",
+    "Kiosk.jsx keeps unused refs (nisnRef, useEffect video-related imports) — minor cleanup only.",
+    "routes_master.py import_students/teachers: no length cap on rows[] — could allow very large payloads; consider bounding to a few thousand for safety.",
+    "Login response uses 'access_token' key (not 'token') — worth documenting in api contract for testers."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration9.py"],
+  "success_rate": {"backend": "100% (7/7 tests)", "frontend": "100% (kiosk NISN + sidebar wali/non-wali + students/teachers export/import buttons)"},
+  "test_credentials": "admin/admin123; guru@mijannah.sch.id/guru123; siswa@mijannah.sch.id/siswa123",
+  "seed_data_creation": "Temporarily created user 'test_ui_nonwali' (non-wali guru) for sidebar test; deleted after test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL is REACT_APP_BACKEND_URL from frontend/.env, /api prefix. Login response uses 'access_token' key. Pytest config forces xdist -n 2 --dist loadscope; use `-n 0` (not `-p no:xdist`) for serial. Test file /app/backend/tests/test_iteration9.py covers iteration 9 features and can be reused. Demo guru is wali of 1A with 2 students; expected dashboard values: class_students=2, total_tahfidz=4.",
+  "rca of the issue": "N/A — no failures encountered."
+}

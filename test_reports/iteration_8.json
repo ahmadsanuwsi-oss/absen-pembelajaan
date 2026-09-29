@@ -1,0 +1,22 @@
+{
+  "summary": "Iteration 8 (per-duty class checklist + class-scoped guru): Backend 16/16 pytest cases pass. Frontend Playwright end-to-end verified: admin can create a guru via /akun with mapel chips (form-user-mapel-*), teaching-class chips (form-user-teaching-class-*), duty toggle (form-user-duty-tabungan) reveals per-duty class checklist (form-user-duty-tabungan-class-*); saved via save-user-btn and the new guru appears in table with the correct mapel/teaching/duty_classes persisted. Edit modal (edit-user-<id>) re-opens with the same chip prefixes prefilled. New guru logs in via username and GET /api/classes returns ONLY 1A (scoping verified). Sidebar shows Tabungan (has duty) and hides Program Tahfidz (no duty). Backend RBAC covered: classes filtered, subjects filtered by mapel_ids, students 403 on other class / 200 on assigned, assessments 403 for wrong class & wrong subject / 200 when both assigned, ledger 403 on other class, savings summary rows only for 1A, POST /api/savings 403 for non-1A student & 200 for 1A student, POST /api/tahfidz 403 without tahfidz duty. Regressions: admin sees all 12 classes and can assess any class; demo guru (guru@mijannah.sch.id) as wali of 1A auto-includes 1A even without teaching_class_ids; username login for admin, email login for demo guru, username validation 400, change-password guru 403 all still pass. All created test users cleaned up via DELETE /api/users/{id}.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration8.py", "/app/test_reports/pytest/iter8.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_teacher._guru_can_grade: when guru has empty mapel_ids and subject_id is provided, currently allowed (mp truthy check). This may be intentional (unassigned mapel = allow) but could also be interpreted as 'guru mapel required'. Confirm with product intent.",
+    "routes_master.list_subjects: guru with empty mapel_ids sees ALL subjects (mp truthy check skips filter). Consider whether guru without mapel_ids should see none or all.",
+    "routes_teacher.list_journals filters by teacher_id even for admin? No, admin path skipped -- OK. But guru with no teacher_id linked will see nothing regardless of duty; acceptable.",
+    "Guru dashboard shows 'Total Tahfidz: 41' for a guru with no tahfidz duty (scoped guru we created). Not blocking but the metric may leak counts from outside guru's scope; consider filtering dashboard cards by accessible classes.",
+    "Sidebar shows 'Wali Kelas' section (Absensi Kelas, Manajemen Kelas) for any guru even if they are not a wali_kelas; may want to hide when user.teacher_id has no wali class."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration8.py"],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100%"},
+  "test_credentials": "admin/admin123; guru@mijannah.sch.id/guru123; siswa@mijannah.sch.id/siswa123",
+  "seed_data_creation": "Test users (uitest*, testg8_*) created in fixtures & Playwright are cleaned up via DELETE /api/users/{id}. Assessments/savings created in tests are also deleted.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration8.py covers create_user with new fields (duty_classes, mapel_ids, teaching_class_ids), update_user rescope, guru scoping across classes/subjects/students/assessments/ledger/savings/tahfidz, admin non-scoping, and demo guru wali auto-include. Playwright verified the Users.jsx GuruAssignments component (Chips + per-duty checklist) with data-testids form-user-mapel-<sid>, form-user-teaching-class-<cid>, form-user-duty-<duty>, form-user-duty-<duty>-class-<cid>, and edit-user-* equivalents.",
+  "rca of the issue": "N/A - no issues found"
+}

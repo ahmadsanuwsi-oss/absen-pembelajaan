@@ -1,0 +1,16 @@
+crons:
+  - name: daily-db-backup
+    description: "Backup harian seluruh database (absensi, nilai, tahfidz, tabungan) tiap malam 01:00 WIB"
+    cron: "0 1 * * *"
+    timezone: "Asia/Jakarta"
+    endpoint: "{{BASE_URL}}/api/cron/backup"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
+  - name: monthly-wa-recap
+    description: "Kirim rekap kehadiran bulan lalu via WhatsApp ke orang tua & wali kelas tiap tanggal 1"
+    cron: "0 0 1 * *"
+    endpoint: "{{BASE_URL}}/api/cron/monthly-wa-recap"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

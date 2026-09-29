@@ -1,0 +1,20 @@
+{
+  "summary": "Iteration 6: Verified 7 new attendance types (datang, pulang, dhuha, dzuhur, pramuka, tartil, ekstra_tahfidz) across backend + frontend. Backend: 30/30 pytest cases pass (kiosk/classes public, scan for all 7 types, invalid type -> 400, not_found, late logic gated to 'datang' only, /attendance list & recap accept all 7, dashboard admin present_today counts type='datang' post-migration, admin/guru/siswa logins). Frontend: Halaman Utama /login shows LEFT AbsensiCepat (ac-type has all 7 options, ac-rfid-input submits on Enter and shows ac-result inline, ac-class dropdown + ac-contact-wali with valid https://wa.me/62... href) and RIGHT MifjanOke login (login-email-input, login-password-input, login-submit-button). Admin/guru/siswa login all succeed and redirect properly. /kiosk has kiosk-type-select (7 options), kiosk-rfid-input, kiosk-capture-btn, kiosk-upload-btn, kiosk-berhalangan-class, kiosk-contact-wali (valid wa.me link). /absensi 'jenis' filter shows all 7 options; Rekap/Harian/Manual tabs present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iteration6.py", "/app/test_reports/pytest/iter6.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_attendance.KioskScanInput default type='kehadiran' is stale (no longer in ATTENDANCE_TYPES); if a client omits 'type', request will 400. Change default to 'datang' to match new type set.",
+    "routes_attendance.ManualAttendanceInput.type default is also 'kehadiran' (stale) - same issue for manual attendance clients that omit type.",
+    "attendance_recap counts['hadir'] uses .get with fallback but if attendance record has unexpected status, KeyError could be raised via counts[status] then counts.get; the current code does counts[r.get('status','hadir')] = counts.get(...)+1 which will KeyError on assignment for unknown statuses. Use setdefault or normalize."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration6.py (new)"],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100%"},
+  "test_credentials": "admin ahmadsanuwsi@gmail.com/admin123, guru guru@mijannah.sch.id/guru123, siswa siswa@mijannah.sch.id/siswa123 (all worked without reset in this run)",
+  "seed_data_creation": "None - used existing seeded students/classes",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration6.py covers 7-types + kiosk/classes public + regression. dashboard present_today observed=22 (matches iteration 5 seed after migration). WA link format https://wa.me/62<digits>?text=... verified for both AbsensiCepat and Kiosk. Minor code-review items about stale default type='kehadiran' in Pydantic models should be addressed by main agent.",
+  "rca of the issue": "N/A"
+}
